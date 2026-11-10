@@ -132,19 +132,23 @@ jobs:
           pmbootstrap chroot -- true
           DIST="$PMB_WORK/cache_distfiles"
           NAME="$KPKG-v7.1.3-r0.tar.gz"
-          mkdir -p "$DIST"
+          TMP="$RUNNER_TEMP/$NAME"
+          # pmbootstrap owns $PMB_WORK/cache_distfiles as root, so download
+          # somewhere writable and install the file with sudo afterwards.
           for i in $(seq 1 12); do
             if curl -fL --retry 2 --retry-delay 5 --retry-all-errors \
-                 --connect-timeout 20 -o "$DIST/$NAME.part" \
+                 --connect-timeout 20 -o "$TMP" \
                  "https://codeload.github.com/msm8953-mainline/linux/tar.gz/refs/tags/v7.1.3-r0"; then
-              mv "$DIST/$NAME.part" "$DIST/$NAME"
-              echo "cached $NAME ($(stat -c%s "$DIST/$NAME") bytes)"
+              echo "downloaded $TMP ($(stat -c%s "$TMP") bytes)"
               break
             fi
             echo "download attempt $i failed, backing off"
             sleep $(( i * 8 ))
           done
-          test -s "$DIST/$NAME"
+          test -s "$TMP"
+          sudo mkdir -p "$DIST"
+          sudo install -m 644 "$TMP" "$DIST/$NAME"
+          ls -l "$DIST/$NAME"
           sha512sum "$DIST/$NAME"
 
       - name: Recompute checksums
@@ -162,7 +166,7 @@ jobs:
           # --split: bare ext4 rootfs image + separate /boot image, which is
           # what a non-A/B device with a 32 GB eMMC wants.
           pmbootstrap -y --details-to-stdout install \
-            --split --password 147147 --no-sshd
+            --split --password 147147
 
       - name: Export flashable artifacts
         if: success()
