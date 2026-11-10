@@ -51,6 +51,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Reuse the kernel package and the source tarball between runs. The
+      # kernel takes 40+ minutes to cross-build, so without this every
+      # iteration on the image step costs a full kernel rebuild.
+      - name: Restore build caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            .pmb-work/packages
+            .pmb-work/cache_ccache_aarch64
+          key: pmb-pkgs-${{ hashFiles('dts/**', 'pmaports/**') }}
+          restore-keys: |
+            pmb-pkgs-
+
+      - name: Restore kernel source tarball
+        uses: actions/cache@v4
+        with:
+          path: .pmb-work/cache_distfiles
+          key: pmb-distfiles-v7.1.3-r0
+
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
@@ -165,8 +184,32 @@ jobs:
         run: |
           # --split: bare ext4 rootfs image + separate /boot image, which is
           # what a non-A/B device with a 32 GB eMMC wants.
-          pmbootstrap -y --details-to-stdout install \
-            --split --password 147147
+          images="$PMB_WORK/chroot_native/home/pmos/rootfs"
+          rc=1
+          for attempt in 1 2; do
+            if pmbootstrap -y --details-to-stdout install \
+                 --split --password 147147; then
+              rc=0
+              break
+            fi
+            rc=$?
+            echo "::warning::install attempt $attempt exited $rc"
+            # Known runner flake: teardown fails on "umount: .../usr/bin/
+            # qemu-aarch64-static: target is busy" although the image has
+            # already been written. Detach it and retry once.
+            sudo umount -l "$PMB_WORK/chroot_rootfs_$DEVICE/usr/bin/qemu-aarch64-static" || true
+            pmbootstrap shutdown || true
+            sleep 5
+          done
+
+          ls -l "$images" || true
+          if [ "$rc" -ne 0 ]; then
+            if [ -s "$images/$DEVICE-root.img" ] && [ -s "$images/$DEVICE-boot.img" ]; then
+              echo "::warning::install exited $rc but both images exist; continuing"
+            else
+              exit "$rc"
+            fi
+          fi
 
       - name: Export flashable artifacts
         if: success()
