@@ -226,11 +226,12 @@
 	status = "okay";
 };
 
+/*
+ * Kernel 7.x folded the old "usb3_dwc3" child node into the controller node
+ * itself, so the role switch and dr_mode are properties of &usb3 now.
+ */
 &usb3 {
-	status = "okay";
-};
-
-&usb3_dwc3 {
 	/delete-property/ usb-role-switch;
 	dr_mode = "peripheral";
+	status = "okay";
 };

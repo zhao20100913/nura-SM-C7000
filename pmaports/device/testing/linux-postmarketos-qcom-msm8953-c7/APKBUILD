@@ -54,6 +54,10 @@ prepare() {
 
 build() {
 	unset LDFLAGS
+	# Build the DTBs first: a broken board file then fails in ~2 minutes
+	# instead of after the whole kernel has compiled.
+	make ARCH="$_carch" LLVM=1 dtbs
+
 	make ARCH="$_carch" LLVM=1 \
 		KBUILD_BUILD_VERSION="$((pkgrel + 1 ))-$_flavor"
 }
@@ -79,5 +83,5 @@ package() {
 sha512sums="
 a57d343c41065df0d41c7005aee07855e7d7aea592327f97c219d8109c10a60b08f54f494a132b4d1d3a549fb4dbffb523e8f49415c0905805f1332f4ddf2dcc  linux-postmarketos-qcom-msm8953-c7-v7.1.3-r0.tar.gz
 c2c568d845442af1ca59e16eb19023e5d2436b6194ac05ddf4dc15159a82e42305ff45ba782b23ccfed5818d5a576e87519be3ef767a29a29114fbf0bc2dfb30  config-postmarketos-qcom-msm8953-c7.aarch64
-a98f34eaa22e308b852875ca3bb4ac8d3da06738cab35ffc0f8afeb8988ef407ddf7cb6fea9bc15faa304644a63ef53014f3a7d08b18236f952816c0180e8db6  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch
+a6a5c5dbed7644b8ebbcce7ce46a1f6fa16b76f5937611e5e9820ba25402b9fa6558839f246659b83fb386096263d573a925eea1fed944bd22465e0b86ae8d08  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch
 "

@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..8e4a336
+index 0000000..cb9d10b
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,236 @@
+@@ -0,0 +1,237 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -232,11 +232,12 @@ index 0000000..8e4a336
 +	status = "okay";
 +};
 +
++/*
++ * Kernel 7.x folded the old "usb3_dwc3" child node into the controller node
++ * itself, so the role switch and dr_mode are properties of &usb3 now.
++ */
 +&usb3 {
-+	status = "okay";
-+};
-+
-+&usb3_dwc3 {
 +	/delete-property/ usb-role-switch;
 +	dr_mode = "peripheral";
++	status = "okay";
 +};
