@@ -107,6 +107,7 @@ jobs:
           locale = en_US.UTF-8
           timezone = Asia/Shanghai
           jobs = $(nproc)
+          service_manager = openrc
           [providers]
           [mirrors]
           EOF
@@ -120,6 +121,31 @@ jobs:
           timeout 1200 bash -c 'yes "" | pmbootstrap --details-to-stdout init'
           pmbootstrap config device
           pmbootstrap config kernel
+
+      - name: Prefetch the kernel source tarball
+        run: |
+          # codeload.github.com answers 429 Too Many Requests for anonymous
+          # archive downloads from shared runner IPs. That broke `abuild
+          # checksum` (and would break the build). Warm pmbootstrap's
+          # distfiles cache with retries first, so abuild only has to verify
+          # the checksum of a file that is already on disk.
+          pmbootstrap chroot -- true
+          DIST="$PMB_WORK/cache_distfiles"
+          NAME="$KPKG-v7.1.3-r0.tar.gz"
+          mkdir -p "$DIST"
+          for i in $(seq 1 12); do
+            if curl -fL --retry 2 --retry-delay 5 --retry-all-errors \
+                 --connect-timeout 20 -o "$DIST/$NAME.part" \
+                 "https://codeload.github.com/msm8953-mainline/linux/tar.gz/refs/tags/v7.1.3-r0"; then
+              mv "$DIST/$NAME.part" "$DIST/$NAME"
+              echo "cached $NAME ($(stat -c%s "$DIST/$NAME") bytes)"
+              break
+            fi
+            echo "download attempt $i failed, backing off"
+            sleep $(( i * 8 ))
+          done
+          test -s "$DIST/$NAME"
+          sha512sum "$DIST/$NAME"
 
       - name: Recompute checksums
         run: |
