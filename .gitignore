@@ -1,0 +1,5 @@
+out/
+.pmb-work/
+*.img
+*.tar.md5
+tmp/

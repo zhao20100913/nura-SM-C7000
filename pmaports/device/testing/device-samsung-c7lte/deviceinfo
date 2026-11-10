@@ -1,0 +1,38 @@
+# Reference: <https://postmarketos.org/deviceinfo>
+# Samsung Galaxy C7 (SM-C7000), "c7lte" (China / global single-SIM)
+deviceinfo_format_version="0"
+deviceinfo_name="Samsung Galaxy C7 (SM-C7000)"
+deviceinfo_manufacturer="Samsung"
+deviceinfo_codename="samsung-c7lte"
+deviceinfo_year="2016"
+deviceinfo_arch="aarch64"
+
+# Mainline MSM8953 device tree, added by
+# linux-postmarketos-qcom-msm8953-c7 (dts/msm8953-samsung-c7lte.dts).
+deviceinfo_dtb="qcom/msm8953-samsung-c7lte"
+# The Samsung bootloader expects the DTB appended to the kernel image;
+# there is no separate dtbo partition on this device.
+deviceinfo_append_dtb="true"
+deviceinfo_generate_bootimg="true"
+deviceinfo_bootimg_qcdt="false"
+
+# Flashing goes through heimdall (Samsung download mode).
+deviceinfo_flash_method="heimdall-bootimg"
+deviceinfo_flash_heimdall_partition_kernel="BOOT"
+deviceinfo_flash_heimdall_partition_rootfs="USERDATA"
+
+# Android 8.0 mkbootimg layout (matches the stock boot.img header).
+deviceinfo_flash_offset_base="0x80000000"
+deviceinfo_flash_offset_kernel="0x00008000"
+deviceinfo_flash_offset_ramdisk="0x01000000"
+deviceinfo_flash_offset_second="0x00f00000"
+deviceinfo_flash_offset_tags="0x00000100"
+deviceinfo_flash_pagesize="2048"
+
+deviceinfo_kernel_cmdline="console=ttyMSM0,115200n8"
+deviceinfo_drm="true"
+deviceinfo_screen_width="1080"
+deviceinfo_screen_height="1920"
+deviceinfo_external_storage="true"
+deviceinfo_partition_type="msdos"
+deviceinfo_boot_filesystem="ext2"

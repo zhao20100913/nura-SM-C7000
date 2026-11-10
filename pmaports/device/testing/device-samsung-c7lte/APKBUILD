@@ -1,0 +1,36 @@
+# Reference: <https://postmarketos.org/devicepkg>
+maintainer="nura-c7 contributors"
+pkgname=device-samsung-c7lte
+pkgver=0.1
+pkgrel=0
+pkgdesc="Samsung Galaxy C7 (SM-C7000)"
+url="https://gitlab.nura.eco/nura/pmaports"
+arch="aarch64"
+license="MIT"
+options="!check !archcheck"
+depends="
+	firmware-qcom-adreno-a530
+	linux-postmarketos-qcom-msm8953-c7
+	mkbootimg
+	msm-firmware-loader
+	postmarketos-base
+	soc-qcom-msm8953
+"
+makedepends="devicepkg-dev"
+source="
+	deviceinfo
+	kernel-cmdline.conf
+"
+
+build() {
+	devicepkg_build "$startdir" "$pkgname"
+}
+
+package() {
+	devicepkg_package "$startdir" "$pkgname"
+}
+
+sha512sums="
+f91f6083d60622fad51d20c4bf00df413217b0bace903b93b96789eaac7ca46ba49a25da28a302142c7af51728525ee19c0d4e902476f4ee8feeba5227a3bfd7  deviceinfo
+8bc79847b4e25f0baed1aa44dff48d80e256d1f44e4376c09513b8b05dd1c5fd98d2ae6b37311229e8a6d5c9bd537b70cddb9624472ca0b9c3d627def92646dc  kernel-cmdline.conf
+"

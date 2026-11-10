@@ -1,0 +1,161 @@
+name: Build Nura for SM-C7000
+
+# Builds a Nura (postmarketOS) image for the Samsung Galaxy C7 SM-C7000
+# with pmbootstrap, entirely on GitHub's runners.
+#
+# Outputs (Actions artifact "nura-c7-<run>"):
+#   boot.img                  Android boot image (kernel + initramfs + C7 DTB)
+#   samsung-c7lte-root.img    ext4 rootfs, flashed to the USERDATA partition
+#   samsung-c7lte.tar.md5     Odin package containing boot.img (optional path)
+#   build.log                 pmbootstrap log, uploaded even when the build fails
+#
+# Nothing here signs anything: the C7 bootloader is unlocked and does not
+# verify the boot image (verified boot is disabled on SM-C7000).
+
+on:
+  workflow_dispatch:
+    inputs:
+      pmaports_ref:
+        description: "pmaports ref to build against"
+        required: false
+        default: "main"
+  push:
+    branches: [ main ]
+    paths:
+      - "pmaports/**"
+      - "dts/**"
+      - ".github/workflows/build.yml"
+  schedule:
+    # Weekly canary: catches upstream pmaports/kernel breakage early.
+    - cron: "23 4 * * 6"
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: pmbootstrap install (aarch64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    env:
+      PMB_WORK: ${{ github.workspace }}/.pmb-work
+      PMAPORTS: ${{ github.workspace }}/.pmb-work/cache_git/pmaports
+      DEVICE: samsung-c7lte
+      KPKG: linux-postmarketos-qcom-msm8953-c7
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost /opt/hostedtoolcache/CodeQL || true
+          df -h /
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git python3 e2fsprogs xz-utils
+
+      - name: Get pmbootstrap
+        run: |
+          git clone --depth=1 https://gitlab.nura.eco/nura/pmbootstrap.git
+          sudo ln -sf "$PWD/pmbootstrap/pmbootstrap.py" /usr/local/bin/pmbootstrap
+          pmbootstrap --version
+
+      - name: Get pmaports and overlay this repo's packages
+        env:
+          PMAPORTS_REF: ${{ github.event.inputs.pmaports_ref || 'main' }}
+        run: |
+          mkdir -p "$(dirname "$PMAPORTS")"
+          git clone --depth=1 --branch "$PMAPORTS_REF" \
+            https://gitlab.nura.eco/nura/pmaports.git "$PMAPORTS"
+          # Our device/kernel packages are copied over the pristine clone:
+          # they live in this repo, not upstream. I never commit to the clone.
+          cp -a pmaports/. "$PMAPORTS"/
+          ls "$PMAPORTS/device/testing/" | grep -E 'c7lte|msm8953-c7'
+
+      - name: Configure pmbootstrap
+        run: |
+          mkdir -p ~/.config
+          cat > ~/.config/pmbootstrap_v3.cfg <<EOF
+          [pmbootstrap]
+          aports = $PMAPORTS
+          work = $PMB_WORK
+          device = $DEVICE
+          kernel = postmarketos-qcom-msm8953-c7
+          ui = console
+          user = user
+          hostname = c7lte
+          locale = en_US.UTF-8
+          timezone = Asia/Shanghai
+          jobs = $(nproc)
+          [providers]
+          [mirrors]
+          EOF
+          cat ~/.config/pmbootstrap_v3.cfg
+
+      - name: Initialize pmbootstrap
+        run: |
+          # pmbootstrap init clones pmaports (already cloned above), then
+          # asks questions whose defaults are all preset in the config.
+          # "yes ''" accepts every default.
+          timeout 1200 bash -c 'yes "" | pmbootstrap --details-to-stdout init'
+          pmbootstrap config device
+          pmbootstrap config kernel
+
+      - name: Recompute checksums
+        run: |
+          # Keeps the APKBUILDs valid when dts/, config or files change.
+          pmbootstrap checksum "$KPKG" "device-$DEVICE"
+
+      - name: Build the C7 kernel package
+        run: |
+          # Fails fast on DTS errors, before the (slow) image install.
+          pmbootstrap --details-to-stdout build "$KPKG"
+
+      - name: Build the image
+        run: |
+          # --split: bare ext4 rootfs image + separate /boot image, which is
+          # what a non-A/B device with a 32 GB eMMC wants.
+          pmbootstrap -y --details-to-stdout install \
+            --split --password 147147 --no-sshd
+
+      - name: Export flashable artifacts
+        if: success()
+        run: |
+          mkdir -p out
+          pmbootstrap export --odin || pmbootstrap export
+          ls -l /tmp/postmarketOS-export || true
+
+          cp -v /tmp/postmarketOS-export/boot.img "out/boot.img"
+          cp -v "/tmp/postmarketOS-export/$DEVICE-root.img" \
+                "out/$DEVICE-root.img"
+          # Odin tar is built by "export --odin"; it is a convenience path
+          # (Heimdall is the primary one), so a miss is not fatal.
+          cp -v "/tmp/postmarketOS-export/$DEVICE.tar.md5" out/ || true
+          cp -rv /tmp/postmarketOS-export/dtbs out/dtbs || true
+
+          find out -maxdepth 1 -type f -exec sha256sum {} + > out/SHA256SUMS || true
+
+      - name: Collect log
+        if: always()
+        run: |
+          mkdir -p out
+          test -f "$PMB_WORK/log.txt" && cp "$PMB_WORK/log.txt" out/build.log || true
+          tail -n 100 out/build.log 2>/dev/null || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nura-c7-${{ github.run_number }}
+          path: out/
+          retention-days: 14
+          if-no-files-found: warn

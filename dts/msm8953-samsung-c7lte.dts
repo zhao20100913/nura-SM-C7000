@@ -1,0 +1,236 @@
+// SPDX-License-Identifier: BSD-3-Clause
+/*
+ * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
+ *
+ * Board data derived from the Samsung downstream tree:
+ *   arch/arm64/boot/dts/samsung/msm8953/msm8953-sec-c7lte_chn-r04.dts
+ *   arch/arm64/boot/dts/samsung/msm8953/msm8953-sec-c7lte_chn-pinctrl-r02.dtsi
+ * and from mainline msm8953-xiaomi-vince.dts.
+ *
+ * STATUS: bring-up. Storage (eMMC/SD), UART and USB are wired up.
+ * Display, touch, WiFi and modem are NOT enabled here: they need drivers
+ * that do not exist in mainline yet (see docs/04-roadmap.md).
+ *
+ * Known C7 wiring (kept here as documentation, do not guess when adding
+ * the drivers):
+ *   panel   Samsung S6E3FA3 AMS568HN31, 1080x1920 command mode DSI,
+ *           TE gpio24, reset gpio50, enable gpio94
+ *   touch   Melfas MMS449 (mms_ts) at 0x48 on i2c_7 (BLSP2 QUP3),
+ *           irq gpio59, vdd_en gpio95
+ *   keys    volume-up gpio85, home gpio86, power via PM8953 PON
+ *   sdc2    card detect gpio133 (active low)
+ */
+
+/dts-v1/;
+
+#include "msm8953.dtsi"
+#include "pm8953.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
+
+/ {
+	model = "Samsung Galaxy C7 (SM-C7000)";
+	compatible = "samsung,c7lte", "qcom,msm8953";
+	chassis-type = "handset";
+
+	/* Same identification the Samsung downstream DTB uses, so the
+	 * bootloader accepts this FDT when it is appended to the kernel. */
+	qcom,board-id = <8 4>;
+
+	aliases {
+		serial0 = &uart_0;
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+		pinctrl-names = "default";
+		pinctrl-0 = <&gpio_keys_default>;
+
+		key-volume-up {
+			label = "Volume Up";
+			gpios = <&tlmm 85 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+			debounce-interval = <15>;
+		};
+
+		key-home {
+			label = "Home";
+			gpios = <&tlmm 86 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_HOMEPAGE>;
+			wakeup-source;
+			debounce-interval = <15>;
+		};
+	};
+
+	vph_pwr: regulator-vph-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "vph_pwr";
+		regulator-min-microvolt = <3700000>;
+		regulator-max-microvolt = <3700000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+};
+
+/*
+ * PM8953 rails used by the C7 (from the downstream regulator table):
+ *   l5  1.8V   eMMC I/O
+ *   l6  1.8V   sensors / codec
+ *   l8  2.9V   eMMC
+ *   l10 2.7-3.3V  camera / misc
+ *   l11 2.95V  SD card
+ *   l12 1.8-2.95V  SD card I/O
+ *   l17 2.75-2.85V  NFC / misc
+ */
+&rpm_requests {
+	regulators {
+		compatible = "qcom,rpm-pm8953-regulators";
+
+		vdd_l1-supply = <&pm8953_s3>;
+		vdd_l2_l3-supply = <&pm8953_s3>;
+		vdd_l4_l5_l6_l7_l16_l19-supply = <&pm8953_s4>;
+		vdd_l8_l11_l12_l13_l14_l15-supply = <&vph_pwr>;
+		vdd_l9_l10_l17_l18_l22-supply = <&vph_pwr>;
+		vdd_s1-supply = <&vph_pwr>;
+		vdd_s2-supply = <&vph_pwr>;
+		vdd_s3-supply = <&vph_pwr>;
+		vdd_s4-supply = <&vph_pwr>;
+		vdd_s5-supply = <&vph_pwr>;
+		vdd_s6-supply = <&vph_pwr>;
+		vdd_s7-supply = <&vph_pwr>;
+
+		pm8953_s1: s1 {
+			regulator-min-microvolt = <870000>;
+			regulator-max-microvolt = <1156000>;
+			regulator-allow-set-load;
+			regulator-system-load = <550000>;
+		};
+
+		pm8953_s3: s3 {
+			regulator-min-microvolt = <984000>;
+			regulator-max-microvolt = <1224000>;
+			regulator-allow-set-load;
+			regulator-system-load = <200000>;
+		};
+
+		pm8953_s4: s4 {
+			regulator-min-microvolt = <1900000>;
+			regulator-max-microvolt = <2050000>;
+			regulator-allow-set-load;
+			regulator-system-load = <200000>;
+		};
+
+		pm8953_l3: l3 {
+			regulator-min-microvolt = <925000>;
+			regulator-max-microvolt = <925000>;
+		};
+
+		pm8953_l5: l5 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-allow-set-load;
+			regulator-system-load = <100000>;
+		};
+
+		pm8953_l6: l6 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-allow-set-load;
+		};
+
+		pm8953_l7: l7 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1900000>;
+		};
+
+		pm8953_l8: l8 {
+			regulator-min-microvolt = <2900000>;
+			regulator-max-microvolt = <2900000>;
+			regulator-allow-set-load;
+			regulator-system-load = <800000>;
+		};
+
+		pm8953_l10: l10 {
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3300000>;
+		};
+
+		pm8953_l11: l11 {
+			regulator-min-microvolt = <2950000>;
+			regulator-max-microvolt = <2950000>;
+			regulator-allow-set-load;
+			regulator-system-load = <200000>;
+		};
+
+		pm8953_l12: l12 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2950000>;
+			regulator-allow-set-load;
+			regulator-system-load = <200000>;
+		};
+
+		pm8953_l13: l13 {
+			regulator-min-microvolt = <3125000>;
+			regulator-max-microvolt = <3125000>;
+		};
+
+		pm8953_l17: l17 {
+			regulator-min-microvolt = <2750000>;
+			regulator-max-microvolt = <2850000>;
+		};
+	};
+};
+
+&hsusb_phy {
+	vdd-supply = <&pm8953_l3>;
+	vdda-pll-supply = <&pm8953_l7>;
+	vdda-phy-dpdm-supply = <&pm8953_l13>;
+	status = "okay";
+};
+
+&sdhc_1 {
+	vmmc-supply = <&pm8953_l8>;
+	vqmmc-supply = <&pm8953_l5>;
+
+	bus-width = <8>;
+	non-removable;
+	mmc-hs400-1_8v;
+
+	status = "okay";
+};
+
+&sdhc_2 {
+	vmmc-supply = <&pm8953_l11>;
+	vqmmc-supply = <&pm8953_l12>;
+
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off &sdc2_cd_off>;
+
+	cd-gpios = <&tlmm 133 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&tlmm {
+	gpio_keys_default: gpio-keys-default-state {
+		pins = "gpio85", "gpio86";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-up;
+	};
+};
+
+&uart_0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+	status = "okay";
+};
+
+&usb3 {
+	status = "okay";
+};
+
+&usb3_dwc3 {
+	/delete-property/ usb-role-switch;
+	dr_mode = "peripheral";
+};
