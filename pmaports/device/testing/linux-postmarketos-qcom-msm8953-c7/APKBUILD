@@ -2,7 +2,7 @@
 #
 # Samsung Galaxy C7 (SM-C7000 / c7lte) flavour of the community MSM8953
 # kernel. Identical configuration, plus the C7 device tree (see the patch).
-maintainer="nura-c7 contributors"
+maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 _flavor="postmarketos-qcom-msm8953-c7"
 pkgname=linux-$_flavor
 pkgver=7.1.3

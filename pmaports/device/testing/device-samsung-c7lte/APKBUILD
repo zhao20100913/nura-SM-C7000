@@ -1,5 +1,5 @@
 # Reference: <https://postmarketos.org/devicepkg>
-maintainer="nura-c7 contributors"
+maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=device-samsung-c7lte
 pkgver=0.1
 pkgrel=0
