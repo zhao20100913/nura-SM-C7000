@@ -80,6 +80,17 @@ jobs:
           # they live in this repo, not upstream. I never commit to the clone.
           cp -a pmaports/. "$PMAPORTS"/
           ls "$PMAPORTS/device/testing/" | grep -E 'c7lte|msm8953-c7'
+          # pmbootstrap reads channels.cfg from the *upstream* remote of the
+          # pmaports clone (it looks for the canonical gitlab.postmarketos.org
+          # URL and then runs `git show <remote>/main:channels.cfg`).
+          # Our clone's origin is the Nura mirror, so register the canonical
+          # URL and point its remote-tracking ref at the same commit. No extra
+          # network round-trip, and `pmbootstrap pull` still works if a human
+          # runs it later.
+          git -C "$PMAPORTS" remote add postmarketos \
+            https://gitlab.postmarketos.org/postmarketOS/pmaports.git
+          git -C "$PMAPORTS" update-ref refs/remotes/postmarketos/main \
+            "$(git -C "$PMAPORTS" rev-parse HEAD)"
 
       - name: Configure pmbootstrap
         run: |
