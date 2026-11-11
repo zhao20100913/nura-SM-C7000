@@ -38,9 +38,16 @@ jobs:
 
       - name: Install toolchain
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            git make python3 gcc-arm-none-eabi device-tree-compiler libfdt-dev
+          set -eux
+          sudo apt-get update -o Acquire::Retries=5 || true
+          for i in 1 2 3 4; do
+            if sudo apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
+                 git make python3 gcc-arm-none-eabi device-tree-compiler libfdt-dev; then
+              break
+            fi
+            echo "apt-get attempt $i failed, retrying"
+            sleep $((i * 15))
+          done
           arm-none-eabi-gcc --version | head -1
           dtc --version
 
