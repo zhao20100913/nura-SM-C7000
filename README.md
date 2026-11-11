@@ -12,16 +12,22 @@ Snapdragon 625), with images built by **GitHub Actions**.
 > (`telnet`/USB networking). There is **no display driver and no touch driver**
 > for this device in mainline yet, so a normal user interface is not part of
 > this milestone. See [docs/04-roadmap.md](docs/04-roadmap.md).
+>
+> A C7 device tree for **lk2nd** is included as well, so the phone gets a
+> standard fastboot interface (`fastboot flash boot boot.img`); see
+> [docs/05-lk2nd.md](docs/05-lk2nd.md).
 
 ## What this repo contains
 
 | Path | Purpose |
 | --- | --- |
 | `dts/msm8953-samsung-c7lte.dts` | Mainline device tree for the C7 (the actual port work) |
+| `lk2nd/msm8953-samsung-c7lte.dts` | lk2nd device tree (modern `/lk2nd` layout) for the C7 |
+| `.github/workflows/lk2nd.yml` | Builds `lk2nd.img` for the C7 (fastboot interface, 512 KiB offset boot slot) |
 | `pmaports/device/testing/device-samsung-c7lte/` | pmaports device package (deviceinfo, cmdline) |
 | `pmaports/device/testing/linux-postmarketos-qcom-msm8953-c7/` | Kernel package: community MSM8953 config + the C7 DTS patch |
 | `.github/workflows/build.yml` | GitHub Actions pipeline: builds `boot.img` + rootfs with pmbootstrap |
-| `docs/` | Feasibility, CI details, flashing instructions, roadmap |
+| `docs/` | Feasibility, CI details, flashing instructions, roadmap, lk2nd notes |
 
 ## Quick start (build in the cloud)
 

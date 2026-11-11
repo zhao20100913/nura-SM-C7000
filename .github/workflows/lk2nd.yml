@@ -1,0 +1,106 @@
+name: Build lk2nd (SM-C7000)
+
+# Builds the lk2nd secondary bootloader for the Samsung Galaxy C7 with the
+# C7 device tree from lk2nd/msm8953-samsung-c7lte.dts.
+#
+# Flash the resulting lk2nd.img to the BOOT partition once (Heimdall), then
+# all later boot images can be flashed with `fastboot flash boot boot.img`
+# from lk2nd itself (it writes the real boot image at a 512 KiB offset).
+
+on:
+  workflow_dispatch:
+    inputs:
+      lk2nd_ref:
+        description: "lk2nd branch/tag/commit (msm8916-mainline/lk2nd)"
+        required: false
+        default: main
+  push:
+    branches: [main]
+    paths:
+      - "lk2nd/**"
+      - ".github/workflows/lk2nd.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lk2nd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            git make python3 gcc-arm-none-eabi device-tree-compiler libfdt-dev
+          arm-none-eabi-gcc --version | head -1
+          dtc --version
+
+      - name: Fetch lk2nd
+        env:
+          LK2ND_REF: ${{ github.event.inputs.lk2nd_ref || 'main' }}
+        run: |
+          set -eux
+          rm -rf lk2nd-src
+          git clone --depth=1 --branch "$LK2ND_REF" \
+            https://github.com/msm8916-mainline/lk2nd.git lk2nd-src
+          git -C lk2nd-src log -1 --oneline
+
+      - name: Add the C7 device tree
+        run: |
+          set -eux
+          cp lk2nd/msm8953-samsung-c7lte.dts \
+             lk2nd-src/lk2nd/device/dts/msm8953/msm8953-samsung-c7lte.dts
+
+          # Register the dtb in the msm8953 platform rules (both the normal
+          # dtb list and the QCDT list, so the Samsung ABL can select it).
+          python3 - <<'PY'
+          path = "lk2nd-src/lk2nd/device/dts/msm8953/rules.mk"
+          src = open(path).read()
+          entry = "\t$(LOCAL_DIR)/msm8953-samsung-c7lte.dtb \\\n"
+          for var in ("ADTBS", "QCDTBS"):
+              needle = var + " += \\\n"
+              assert needle in src, f"{var} block not found"
+              src = src.replace(needle, needle + entry, 1)
+          open(path, "w").write(src)
+          assert "msm8953-samsung-c7lte" in src
+          PY
+
+          grep -n "c7lte" lk2nd-src/lk2nd/device/dts/msm8953/rules.mk
+
+      - name: Build lk2nd
+        run: |
+          set -eux
+          cd lk2nd-src
+          make -j"$(nproc)" TOOLCHAIN_PREFIX=arm-none-eabi- lk2nd-msm8953
+
+          ls -l build-lk2nd-msm8953/lk2nd.img
+          DTB=$(find build-lk2nd-msm8953 -name msm8953-samsung-c7lte.dtb -print -quit)
+          test -n "$DTB"
+          dtc -I dtb -O dts "$DTB" > /tmp/c7.dts
+          grep -E "model =|match-bootloader|msm-id|board-id" /tmp/c7.dts
+
+      - name: Collect artifacts
+        run: |
+          set -eux
+          mkdir -p out
+          cp lk2nd-src/build-lk2nd-msm8953/lk2nd.img out/
+          DTB=$(find lk2nd-src/build-lk2nd-msm8953 -name msm8953-samsung-c7lte.dtb -print -quit)
+          dtc -I dtb -O dts "$DTB" > out/msm8953-samsung-c7lte.dts.decompiled
+          ( cd out && sha256sum lk2nd.img msm8953-samsung-c7lte.dts.decompiled > SHA256SUMS )
+
+      - name: Upload lk2nd.img
+        uses: actions/upload-artifact@v4
+        with:
+          name: lk2nd-c7-${{ github.run_number }}
+          path: out/
+          retention-days: 14
+          if-no-files-found: error

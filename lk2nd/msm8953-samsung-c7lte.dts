@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Samsung Galaxy C7 (SM-C7000) - lk2nd secondary bootloader device tree
+ *
+ * This file is written for the current lk2nd tree
+ * (https://github.com/msm8916-mainline/lk2nd, branch `main`), i.e. the
+ * "modern" layout where every device is described as a subnode of the
+ * /lk2nd container node.  The older msm8953-mainline fork used root-level
+ * device nodes instead; a dtb in that layout still boots but lk2nd cannot
+ * find a device node, which is exactly why the menu shows
+ * "Unknown (FIXME!)" until this file replaces it.
+ *
+ * qcom,msm-id / qcom,board-id are what the Samsung ABL uses to pick the
+ * dtb out of the QCDT block, so they must stay in the root node.
+ * The C7 reports board id <8 3>; <8 4> is kept as well because the
+ * downstream Samsung DTS uses it and ABL revisions differ.
+ */
+
+/dts-v1/;
+
+#include <skeleton64.dtsi>
+#include <lk2nd.dtsi>
+
+/ {
+	qcom,msm-id = <QCOM_ID_MSM8953 0>;
+	qcom,board-id = <QCOM_BOARD_ID_MTP 3>, <QCOM_BOARD_ID_MTP 4>;
+
+	/*
+	 * Samsung's ABL rewrites/deletes some nodes before it hands the dtb
+	 * over; if they are missing it refuses to continue.  Same quirk as
+	 * sdm450-samsung-r04.dts, which is the closest supported sibling
+	 * (MSM8953 family, Samsung sec memory map).
+	 */
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x0 0x0 0x0 0xffffffff>;
+
+		qcom,memshare {
+			qcom,client_4 {
+				qcom,peripheral-size = <0x6000000>;
+			};
+		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		sec_debug_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85000000 0x0 0x800000>;
+		};
+
+		sec_debug_low_region@0 {
+			compatible = "removed-dma-pool";
+			no-map;
+			reg = <0x0 0x85000000 0x0 0x400000>;
+		};
+
+		lk_region@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			linux,remove-completely;
+			no-map;
+			reg = <0x0 0x8f600000 0x0 0x300000>;
+			label = "lk_mem";
+		};
+
+		modem_shared_mem_region@0x93000000 {
+			reg = <0x0 0x93000000 0x0 0x6000000>;
+		};
+	};
+};
+
+&lk2nd {
+	c7lte {
+		model = "Samsung Galaxy C7 (SM-C7000)";
+		compatible = "samsung,c7lte";
+		lk2nd,match-bootloader = "C7000*";
+
+		/*
+		 * Hint for the kernel dtb selection.  With a mainline kernel
+		 * that carries its own msm8953-samsung-c7lte.dtb this is not
+		 * strictly needed, but it is what lets lk2nd pick the right
+		 * dtb on Android boot images that ship a QCDT.
+		 */
+		lk2nd,dtb-files = "msm8953-samsung-c7lte";
+
+		/* Home key (GPIO 86, active low with pull-up): menu select. */
+		gpio-keys {
+			compatible = "gpio-keys";
+
+			home {
+				lk2nd,code = <KEY_HOME>;
+				gpios = <&tlmm 86 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+			};
+		};
+
+		/*
+		 * TODO: panel / touchscreen detection.
+		 *
+		 * The C7 uses a Samsung S6E3FA3 (AMS568HN31) 1080x1920
+		 * command-mode panel on mdss_dsi0, with TE on GPIO 24,
+		 * reset on GPIO 50 and enable on GPIO 94, and a Melfas
+		 * MMS449 touch controller (i2c_7, IRQ GPIO 59, vdd_en GPIO 95).
+		 *
+		 * lk2nd can only detect the panel if the Samsung ABL passes
+		 * mdss_mdp.panel= in the boot arguments.  Add a panel node
+		 * here once the exact panel name from the stock dtb is known:
+		 *
+		 *	panel {
+		 *		compatible = "samsung,c7lte-panel", "lk2nd,panel";
+		 *
+		 *		qcom,mdss_dsi_s6e3fa3_ams568hn31_fhd_cmd {
+		 *			compatible = "samsung,s6e3fa3";
+		 *			touchscreen-compatible = "melfas,mms449";
+		 *		};
+		 *	};
+		 *
+		 * TODO: samsung,muic-reset (SM5705 MUIC).  Only needed if USB
+		 * does not enumerate in lk2nd/fastboot mode.
+		 */
+	};
+};
