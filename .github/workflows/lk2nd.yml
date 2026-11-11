@@ -119,6 +119,14 @@ jobs:
           dtc -I dtb -O dts "$DTB" > /tmp/c7.dts
           grep -E "model =|match-bootloader|msm-id|board-id" /tmp/c7.dts
 
+      - name: Check image size
+        run: |
+          set -eux
+          SIZE=$(stat -c%s lk2nd-src/build-lk2nd-msm8953/lk2nd.img)
+          echo "lk2nd.img is $((SIZE / 1024)) KiB"
+          # lk2nd has to fit in front of the real boot image (512 KiB offset).
+          test "$SIZE" -le $((512 * 1024))
+
       - name: Collect artifacts
         run: |
           set -eux

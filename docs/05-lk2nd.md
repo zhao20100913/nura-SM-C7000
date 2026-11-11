@@ -122,3 +122,28 @@ pull lk2nd's log if something goes wrong.
 
 These do not block booting a mainline kernel: they are only used by lk2nd for
 hardware detection and for passing a panel name to downstream kernels.
+
+## Build status
+
+The workflow has produced a working image:
+
+- run: <https://github.com/zhao20100913/nura-SM-C7000/actions/runs/43101091696>
+  (green; ~40 s of actual work once a runner is assigned)
+- artifact: `lk2nd-c7-6`
+- `lk2nd.img`: 374,800 bytes, sha256
+  `8ff0f8d6c641d4c7ab16f9b55b48148c595f3c066326356c246e4ef13be3711b`
+- the embedded dtb decompiles to `model = "Samsung Galaxy C7 (SM-C7000)"`,
+  `qcom,msm-id = <0x125 0>`, `qcom,board-id = <0x08 0x03 0x08 0x04>` and
+  `lk2nd,match-bootloader = "C7000*"`, so lk2nd should stop printing
+  `Unknown (FIXME!)` once this image is flashed.
+
+Two CI workarounds are worth knowing about, because the obvious approach does
+not work on the hosted runners:
+
+- `device-tree-compiler` is **not** installed through apt: every run failed to
+  resolve `azure.archive.ubuntu.com`. The two Ubuntu 24.04 `.deb`s
+  (`libfdt1_1.7.0-2build1`, `device-tree-compiler_1.7.0-2build1`) are fetched
+  from `mirrors.edge.kernel.org` and installed with `dpkg -i` instead.
+- the ARM toolchain comes from `carlosperate/arm-none-eabi-gcc-action`
+  (release `15.3.Rel1`), exactly like upstream lk2nd CI, instead of the
+  `gcc-arm-none-eabi` apt package.

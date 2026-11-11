@@ -14,8 +14,9 @@ Snapdragon 625), with images built by **GitHub Actions**.
 > this milestone. See [docs/04-roadmap.md](docs/04-roadmap.md).
 >
 > A C7 device tree for **lk2nd** is included as well, so the phone gets a
-> standard fastboot interface (`fastboot flash boot boot.img`); see
-> [docs/05-lk2nd.md](docs/05-lk2nd.md).
+> standard fastboot interface (`fastboot flash boot boot.img`). The workflow
+> builds it green — 374,800-byte `lk2nd.img`, dtb identifying the device as
+> `Samsung Galaxy C7 (SM-C7000)`; see [docs/05-lk2nd.md](docs/05-lk2nd.md).
 
 ## What this repo contains
 
