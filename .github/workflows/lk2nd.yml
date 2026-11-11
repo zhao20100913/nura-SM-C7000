@@ -36,23 +36,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install toolchain
+      # Upstream lk2nd CI does the same: only dtc comes from apt, the ARM
+      # toolchain is fetched as a release tarball.  apt mirrors on the
+      # runners fail with DNS errors from time to time, so the dtc install
+      # is bounded by timeouts and retried instead of hammering the network.
+      - name: Install dtc
         run: |
           set -eux
           APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10"
-          timeout 240 sudo apt-get update $APT || true
           ok=
           for i in 1 2 3 4 5; do
-            if timeout 300 sudo apt-get install -y --no-install-recommends $APT \
-                 git make python3 gcc-arm-none-eabi device-tree-compiler libfdt-dev; then
+            if timeout 240 sudo apt-get install -yqq $APT device-tree-compiler; then
               ok=1; break
             fi
-            echo "apt-get attempt $i failed, retrying"
+            echo "dtc install attempt $i failed, refreshing package lists"
+            timeout 240 sudo apt-get update $APT || true
             sleep $((i * 20))
           done
           test -n "$ok"
-          arm-none-eabi-gcc --version | head -1
           dtc --version
+
+      - name: Install ARM cross compiler
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '15.3.Rel1'
+
+      - name: Check toolchain
+        run: arm-none-eabi-gcc --version | head -1
 
       - name: Fetch lk2nd
         env:
