@@ -4,10 +4,14 @@ Bring-up repository for running [Nura](https://nura.eco) (the renamed
 postmarketOS) on the Samsung Galaxy C7 `SM-C7000` (`c7lte`, MSM8953 /
 Snapdragon 625), with images built by **GitHub Actions**.
 
-> **Status: early bring-up.** The image builds, flashes and is expected to
-> reach the initramfs (`telnet`/USB networking). There is **no display driver
-> and no touch driver** for this device in mainline yet, so a normal user
-> interface is not part of this milestone. See [docs/04-roadmap.md](docs/04-roadmap.md).
+[![Build Nura for SM-C7000](https://github.com/zhao20100913/nura-SM-C7000/actions/workflows/build.yml/badge.svg)](https://github.com/zhao20100913/nura-SM-C7000/actions/workflows/build.yml)
+
+> **Status: early bring-up.** The image builds (first green run:
+> [#9](https://github.com/zhao20100913/nura-SM-C7000/actions/runs/42921231041),
+> 2026-11-11, ~77 min), flashes, and is expected to reach the initramfs
+> (`telnet`/USB networking). There is **no display driver and no touch driver**
+> for this device in mainline yet, so a normal user interface is not part of
+> this milestone. See [docs/04-roadmap.md](docs/04-roadmap.md).
 
 ## What this repo contains
 
@@ -25,7 +29,7 @@ Snapdragon 625), with images built by **GitHub Actions**.
 2. Actions → **Build Nura for SM-C7000** → *Run workflow*.
    A build takes roughly **40–90 minutes** on `ubuntu-24.04`
    (kernel + rootfs are compiled from source).
-3. Download the artifact `nura-c7-<run>`:
+3. Download the artifact `nura-c7-<run>` (run 9: ~254 MB):
    - `boot.img` — Android boot image (kernel + initramfs + appended C7 DTB)
    - `samsung-c7lte-root.img` — ext4 root filesystem
    - `samsung-c7lte.tar.md5` — the same boot image packaged for Odin
