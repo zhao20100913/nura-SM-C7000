@@ -39,15 +39,18 @@ jobs:
       - name: Install toolchain
         run: |
           set -eux
-          sudo apt-get update -o Acquire::Retries=5 || true
-          for i in 1 2 3 4; do
-            if sudo apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
+          APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10"
+          timeout 240 sudo apt-get update $APT || true
+          ok=
+          for i in 1 2 3 4 5; do
+            if timeout 300 sudo apt-get install -y --no-install-recommends $APT \
                  git make python3 gcc-arm-none-eabi device-tree-compiler libfdt-dev; then
-              break
+              ok=1; break
             fi
             echo "apt-get attempt $i failed, retrying"
-            sleep $((i * 15))
+            sleep $((i * 20))
           done
+          test -n "$ok"
           arm-none-eabi-gcc --version | head -1
           dtc --version
 
