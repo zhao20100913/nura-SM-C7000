@@ -43,17 +43,28 @@ jobs:
       - name: Install dtc
         run: |
           set -eux
-          APT="-o Acquire::Retries=3 -o Acquire::http::Timeout=10 -o Acquire::https::Timeout=10"
+          # The Ubuntu mirrors on the hosted runners keep failing to resolve
+          # (azure.archive.ubuntu.com); take the two noble debs from the
+          # kernel.org mirror instead and only fall back to apt at the end.
+          BASE=https://mirrors.edge.kernel.org/ubuntu/pool/main/d/device-tree-compiler
+          VER=1.7.0-2build1        # device-tree-compiler as shipped in Ubuntu 24.04
           ok=
-          for i in 1 2 3 4 5; do
-            if timeout 240 sudo apt-get install -yqq $APT device-tree-compiler; then
+          for i in 1 2 3; do
+            curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+              -o /tmp/libfdt1.deb "$BASE/libfdt1_${VER}_amd64.deb" || true
+            curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 \
+              -o /tmp/dtc.deb "$BASE/device-tree-compiler_${VER}_amd64.deb" || true
+            if [ -s /tmp/libfdt1.deb ] && [ -s /tmp/dtc.deb ] && \
+               sudo dpkg -i /tmp/libfdt1.deb /tmp/dtc.deb; then
               ok=1; break
             fi
-            echo "dtc install attempt $i failed, refreshing package lists"
-            timeout 240 sudo apt-get update $APT || true
-            sleep $((i * 20))
+            echo "dtc download attempt $i failed, retrying"
+            sleep $((i * 15))
           done
-          test -n "$ok"
+          if [ -z "$ok" ]; then
+            echo "deb download failed, falling back to apt"
+            timeout 240 sudo apt-get install -yqq device-tree-compiler
+          fi
           dtc --version
 
       - name: Install ARM cross compiler
