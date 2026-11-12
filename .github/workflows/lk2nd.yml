@@ -81,8 +81,13 @@ jobs:
         run: |
           set -eux
           rm -rf lk2nd-src
-          git clone --depth=1 --branch "$LK2ND_REF" \
-            https://github.com/msm8916-mainline/lk2nd.git lk2nd-src
+          # fetch + checkout, not clone --branch: the ref may be a bare
+          # commit sha (e.g. the commit a known-good local build came from).
+          git init -q lk2nd-src
+          git -C lk2nd-src remote add origin \
+            https://github.com/msm8916-mainline/lk2nd.git
+          git -C lk2nd-src fetch --depth=1 origin "$LK2ND_REF"
+          git -C lk2nd-src checkout -q FETCH_HEAD
           git -C lk2nd-src log -1 --oneline
 
       - name: Add the C7 device tree
