@@ -86,7 +86,14 @@ jobs:
           git init -q lk2nd-src
           git -C lk2nd-src remote add origin \
             https://github.com/msm8916-mainline/lk2nd.git
-          git -C lk2nd-src fetch --depth=1 origin "$LK2ND_REF"
+          # A branch or tag fetches by name; a (short) commit sha does not, so
+          # resolve it through the public GitHub API and fetch the full sha.
+          if ! git -C lk2nd-src fetch --depth=1 origin "$LK2ND_REF" 2>/dev/null; then
+            FULL=$(curl -fsSL "https://api.github.com/repos/msm8916-mainline/lk2nd/commits/$LK2ND_REF" \
+              | python3 -c 'import json, sys; print(json.load(sys.stdin)["sha"])')
+            echo "resolved $LK2ND_REF -> $FULL"
+            git -C lk2nd-src fetch --depth=1 origin "$FULL"
+          fi
           git -C lk2nd-src checkout -q FETCH_HEAD
           git -C lk2nd-src log -1 --oneline
 
