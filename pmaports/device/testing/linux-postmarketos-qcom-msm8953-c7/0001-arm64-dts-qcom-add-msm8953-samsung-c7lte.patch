@@ -1,6 +1,6 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..74fcc50
+index 0000000..77ffd93
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 @@ -0,0 +1,249 @@
@@ -48,7 +48,7 @@ index 0000000..74fcc50
 +	 * LK patch the node at the literal path "/memory". Without the
 +	 * rename the bootloader cannot fill in the RAM size and the kernel
 +	 * comes up with zero memory. */
-+	/delete-node/ &memory;
++	/delete-node/ memory@10000000;
 +
 +	memory {
 +		device_type = "memory";
@@ -253,16 +253,3 @@ index 0000000..74fcc50
 +	dr_mode = "peripheral";
 +	status = "okay";
 +};
-diff --git a/arch/arm64/boot/dts/qcom/msm8953.dtsi b/arch/arm64/boot/dts/qcom/msm8953.dtsi
-index 7d5ddfd..a963e08 100644
---- a/arch/arm64/boot/dts/qcom/msm8953.dtsi
-+++ b/arch/arm64/boot/dts/qcom/msm8953.dtsi
-@@ -508,7 +508,7 @@
- 		};
- 	};
- 
--	memory@10000000 {
-+	memory: memory@10000000 {
- 		device_type = "memory";
- 		/* We expect the bootloader to fill in the reg */
- 		reg = <0 0x10000000 0 0>;
