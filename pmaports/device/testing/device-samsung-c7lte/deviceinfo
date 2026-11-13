@@ -10,11 +10,17 @@ deviceinfo_arch="aarch64"
 # Mainline MSM8953 device tree, added by
 # linux-postmarketos-qcom-msm8953-c7 (dts/msm8953-samsung-c7lte.dts).
 deviceinfo_dtb="qcom/msm8953-samsung-c7lte"
-# The Samsung bootloader expects the DTB appended to the kernel image;
-# there is no separate dtbo partition on this device.
-deviceinfo_append_dtb="true"
+# Samsung ABL (Android 8.0) reads a Qualcomm QCDT table from the dt area of
+# boot.img, picks the entry matching qcom,msm-id/qcom,board-id and patches
+# /memory before handing the FDT to the kernel. Appending the DTB to the
+# kernel bypasses that patching and leaves the kernel with zero memory, so
+# the DTB must go through the QCDT table instead.
+deviceinfo_append_dtb="false"
 deviceinfo_generate_bootimg="true"
-deviceinfo_bootimg_qcdt="false"
+deviceinfo_bootimg_qcdt="true"
+deviceinfo_bootimg_qcdt_type="qcom"
+# Samsung refuses to boot images without this trailer in the boot.img.
+deviceinfo_bootimg_append_seandroidenforce="true"
 
 # Flashing goes through heimdall (Samsung download mode).
 deviceinfo_flash_method="heimdall-bootimg"

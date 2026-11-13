@@ -33,9 +33,21 @@
 	compatible = "samsung,c7lte", "qcom,msm8953";
 	chassis-type = "handset";
 
-	/* Same identification the Samsung downstream DTB uses, so the
-	 * bootloader accepts this FDT when it is appended to the kernel. */
+	/* Same identification the Samsung downstream DTB uses. The
+	 * bootloader picks this FDT out of the QCDT table in boot.img and
+	 * patches /memory below with the real RAM size. */
 	qcom,board-id = <8 4>;
+
+	/* msm8953.dtsi names it memory@10000000, but both Samsung's ABL and
+	 * LK patch the node at the literal path "/memory". Without the
+	 * rename the bootloader cannot fill in the RAM size and the kernel
+	 * comes up with zero memory. */
+	/delete-node/ &{/memory@10000000};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x1 0x0>; /* 4 GiB fallback, ABL overrides */
+	};
 
 	aliases {
 		serial0 = &uart_0;

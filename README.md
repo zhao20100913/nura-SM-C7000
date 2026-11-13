@@ -13,6 +13,11 @@ Snapdragon 625), with images built by **GitHub Actions**.
 > for this device in mainline yet, so a normal user interface is not part of
 > this milestone. See [docs/04-roadmap.md](docs/04-roadmap.md).
 >
+> **Boot image format (2026-11)**: the Samsung aboot expects a QCDT dt area and
+> patches `/memory`; the deviceinfo now sets `bootimg_qcdt="true"`,
+> `bootimg_qcdt_type="qcom"` and `bootimg_append_seandroidenforce="true"` instead
+> of appending the dtb to the kernel. See [docs/03-flashing.md](docs/03-flashing.md).
+
 > A C7 device tree for **lk2nd** is included as well, so the phone gets a
 > standard fastboot interface (`fastboot flash boot boot.img`). The workflow
 > builds it green — 374,800-byte `lk2nd.img`, dtb identifying the device as

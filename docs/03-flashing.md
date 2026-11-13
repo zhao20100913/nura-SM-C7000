@@ -47,6 +47,45 @@ Notes:
   has to be flashed separately (Odin: `AP` = boot tar, `USERDATA` = rootfs
   image is *not* supported by Odin for raw images — use Heimdall for that).
 
+### How the boot image is packaged
+
+Samsung's aboot on this device is a Qualcomm LK: it reads a **QCDT table**
+from the `dt` area of `boot.img`, picks the entry whose
+`qcom,msm-id`/`qcom,board-id` matches the phone, patches `/memory` with the
+real RAM size and passes that FDT to the kernel.
+
+Our deviceinfo therefore sets:
+
+```
+deviceinfo_append_dtb="false"
+deviceinfo_bootimg_qcdt="true"
+deviceinfo_bootimg_qcdt_type="qcom"
+deviceinfo_bootimg_append_seandroidenforce="true"
+```
+
+so boot-deploy builds the table with `dtbTool` and appends the
+`SEANDROIDENFORCE` trailer. Do **not** append the DTB to the kernel image:
+the bootloader then never patches `/memory` and the kernel comes up with
+zero memory (symptom: Samsung logo, `Set Warranty Bit : kernel`, reboot).
+
+### Troubleshooting: logo, then reboot
+
+1. Re-check the dtb inside the image on a Linux host:
+
+   ```sh
+   dtc -I dtb -O dts /boot/dtbs/qcom/msm8953-samsung-c7lte.dtb | head -30
+   ```
+
+   It must show `/ memory { reg = <0x00 0x80000000 ...>; }` (no unit address),
+   `qcom,msm-id = <0x125 0x00>` and `qcom,board-id = <0x08 ...>`.
+2. Try the lk2nd path instead (see `05-lk2nd.md`): flash `lk2nd.img` to
+   `BOOT`, then `fastboot flash boot boot.img` — lk2nd writes the real image
+   at BOOT+512 KiB and does its own dtb patching.
+3. Capture a log: with lk2nd installed, `fastboot oem log` shows the current
+   session; add `lk2nd.pass-ramoops` to the cmdline and use
+   `fastboot oem ramoops console` to read the previous kernel's console
+   (needs `PSTORE_RAM`).
+
 ## 3. First boot
 
 Hold **Power** for ~10 s to leave download mode, then power on normally.
