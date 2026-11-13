@@ -175,10 +175,15 @@ jobs:
           # Keeps the APKBUILDs valid when dts/, config or files change.
           pmbootstrap checksum "$KPKG" "device-$DEVICE"
 
-      - name: Build the C7 kernel package
+      - name: Build the C7 kernel and device packages
         run: |
-          # Fails fast on DTS errors, before the (slow) image install.
-          pmbootstrap --details-to-stdout build "$KPKG"
+          # Build both explicitly: "pmbootstrap install" only builds what its
+          # dependency walk finds missing, and a restored package cache can
+          # leave it with a stale index entry but no .apk on disk.
+          pmbootstrap --details-to-stdout build "$KPKG" "device-$DEVICE"
+          # Make sure both binary packages really exist before installing.
+          ls -l "$PMB_WORK/packages/edge/aarch64/$KPKG"-*.apk
+          ls -l "$PMB_WORK/packages/edge/aarch64/device-$DEVICE"-*.apk
 
       - name: Build the image
         run: |
