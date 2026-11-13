@@ -32,6 +32,7 @@ Snapdragon 625), with images built by **GitHub Actions**.
 | `.github/workflows/lk2nd.yml` | Builds `lk2nd.img` for the C7 (fastboot interface, 512 KiB offset boot slot) |
 | `pmaports/device/testing/device-samsung-c7lte/` | pmaports device package (deviceinfo, cmdline) |
 | `pmaports/device/testing/linux-postmarketos-qcom-msm8953-c7/` | Kernel package: community MSM8953 config + the C7 DTS patch |
+| `scripts/check-dts.sh` | Compile the board dts locally (fetches just the SoC includes it needs) |
 | `.github/workflows/build.yml` | GitHub Actions pipeline: builds `boot.img` + rootfs with pmbootstrap |
 | `docs/` | Feasibility, CI details, flashing instructions, roadmap, lk2nd notes |
 

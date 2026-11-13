@@ -140,6 +140,12 @@ jobs:
           timeout 1200 bash -c 'yes "" | pmbootstrap --details-to-stdout init'
           pmbootstrap config device
           pmbootstrap config kernel
+          # actions/cache restores the package and ccache directories with the
+          # runner's uid. Inside the chroot the build runs as pmos, so abuild
+          # cannot create the .apk and dies with "Permission denied" after a
+          # full kernel build. Hand the cached trees back to pmos.
+          pmbootstrap chroot -- chown -R pmos:pmos /mnt/pmbootstrap/packages || true
+          pmbootstrap chroot -- chown -R pmos:pmos /mnt/pmbootstrap/cache_ccache_aarch64 || true
 
       - name: Prefetch the kernel source tarball
         run: |
