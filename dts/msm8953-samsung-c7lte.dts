@@ -42,7 +42,7 @@
 	 * LK patch the node at the literal path "/memory". Without the
 	 * rename the bootloader cannot fill in the RAM size and the kernel
 	 * comes up with zero memory. */
-	/delete-node/ &{/memory@10000000};
+	/delete-node/ &memory;
 
 	memory {
 		device_type = "memory";
