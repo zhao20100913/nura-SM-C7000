@@ -55,12 +55,17 @@ jobs:
       # kernel takes 40+ minutes to cross-build, so without this every
       # iteration on the image step costs a full kernel rebuild.
       - name: Restore build caches
-        uses: actions/cache@v4
+        id: pmbcache
+        uses: actions/cache/restore@v4
         with:
+          # A unique key per run + a shared prefix: restore always picks the
+          # most recent cache, and save never collides with an existing key.
+          # (The plain actions/cache action skips its save when the job is
+          # cancelled, which costs a full 60-70 min kernel rebuild every time.)
           path: |
             .pmb-work/packages
             .pmb-work/cache_ccache_aarch64
-          key: pmb-pkgs-${{ hashFiles('dts/**', 'pmaports/**') }}
+          key: pmb-pkgs-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             pmb-pkgs-
 
@@ -238,6 +243,15 @@ jobs:
           cp -rv /tmp/postmarketOS-export/dtbs out/dtbs || true
 
           find out -maxdepth 1 -type f -exec sha256sum {} + > out/SHA256SUMS || true
+
+      - name: Save build caches
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            .pmb-work/packages
+            .pmb-work/cache_ccache_aarch64
+          key: pmb-pkgs-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Collect log
         if: always()
