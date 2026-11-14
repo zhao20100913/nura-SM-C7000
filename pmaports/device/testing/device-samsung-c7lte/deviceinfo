@@ -36,6 +36,12 @@ deviceinfo_flash_offset_tags="0x00000100"
 deviceinfo_flash_pagesize="2048"
 
 deviceinfo_kernel_cmdline="console=ttyMSM0,115200n8 lk2nd.pass-ramoops"
+# Serial console on the debug UART (same getty the downstream Samsung tree uses).
+deviceinfo_getty="ttyMSM0;115200"
+
+# Let `pmbootstrap flasher flash_rootfs` send a sparse image, like the other
+# Qualcomm Samsung ports do (fastboot handles sparse natively).
+deviceinfo_flash_sparse="true"
 deviceinfo_drm="true"
 deviceinfo_screen_width="1080"
 deviceinfo_screen_height="1920"

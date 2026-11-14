@@ -2,7 +2,7 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=device-samsung-c7lte
 pkgver=0.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Samsung Galaxy C7 (SM-C7000)"
 url="https://gitlab.nura.eco/nura/pmaports"
 arch="aarch64"
@@ -10,6 +10,7 @@ license="MIT"
 options="!check !archcheck"
 depends="
 	firmware-qcom-adreno-a530
+	lk2nd-msm8953
 	linux-postmarketos-qcom-msm8953-c7
 	dtbtool
 	mkbootimg
@@ -33,6 +34,6 @@ package() {
 }
 
 sha512sums="
-eb32f2088a3de3f7aa44ea4022881d731b39502ac133eef41a266477495791ef294d171d91fcb4ed9f4210ff16627df338320e5f0eccb2dbecbe50da6e8a5162  deviceinfo
+7bd2f947109a9b943f294114ef8c047656fe0e9feb01d63c6cb9ffd8aaf0061432aca50cc2c4549a994987c520cbddb859e17c06bd1bc944c4d06674ba952907  deviceinfo
 621201b5fccd6930bb80240811cba77d790cd8b1ab8f1ad8cebd2f8e4ec5bfe95f0b8fedac33a8bc7babd2cc19af61b0e6d834b6ae8cb59268114caa9a121764  kernel-cmdline.conf
 "
