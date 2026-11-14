@@ -62,9 +62,7 @@ jobs:
           # most recent cache, and save never collides with an existing key.
           # (The plain actions/cache action skips its save when the job is
           # cancelled, which costs a full 60-70 min kernel rebuild every time.)
-          path: |
-            .pmb-work/packages
-            .pmb-work/cache_ccache_aarch64
+          path: .pmb-work/cache_ccache_aarch64
           key: pmb-pkgs-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             pmb-pkgs-
@@ -149,14 +147,7 @@ jobs:
           # runner's uid. Inside the chroot the build runs as pmos, so abuild
           # cannot create the .apk and dies with "Permission denied" after a
           # full kernel build. Hand the cached trees back to pmos.
-          pmbootstrap chroot -- chown -R pmos:pmos /mnt/pmbootstrap/packages || true
           pmbootstrap chroot -- chown -R pmos:pmos /mnt/pmbootstrap/cache_ccache_aarch64 || true
-          # The cached package index was signed by a previous runner's
-          # throwaway abuild key. abuild verifies it against the current key
-          # and refuses with "APKINDEX.tar.gz: UNTRUSTED signature" right
-          # after a successful 40-minute kernel build. Drop the index so it is
-          # regenerated (and re-signed) with this runner's key.
-          sudo rm -f "$PMB_WORK"/packages/*/*/APKINDEX.tar.gz*
 
       - name: Prefetch the kernel source tarball
         run: |
@@ -254,9 +245,7 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: |
-            .pmb-work/packages
-            .pmb-work/cache_ccache_aarch64
+          path: .pmb-work/cache_ccache_aarch64
           key: pmb-pkgs-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Collect log
