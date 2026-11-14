@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..521b271
+index 0000000..bf3227f
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,262 @@
+@@ -0,0 +1,275 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -243,6 +243,19 @@ index 0000000..521b271
 +};
 +
 +&tlmm {
++	/*
++	 * These GPIO pages are claimed by the secure world and the SCM call
++	 * that configures them runs before Linux starts; on this platform a
++	 * plain read of one of their registers returns a bus error instead
++	 * of data. gpiolib would otherwise read every line's direction while
++	 * registering the chip, which is exactly what crashed with
++	 * "synchronous external abort" in msm_gpio_get_direction.
++	 *
++	 * The same three pages are reserved on every other mainline MSM8953
++	 * board (they come from the firmware, not from the board).
++	 */
++	gpio-reserved-ranges = <0 4>, <16 4>, <135 4>;
++
 +	gpio_keys_default: gpio-keys-default-state {
 +		pins = "gpio85", "gpio86";
 +		function = "gpio";
