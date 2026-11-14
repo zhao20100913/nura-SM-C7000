@@ -195,11 +195,11 @@ jobs:
               text = apk.read_text()
 
               old = {}
-              m = re.search(r'sha512sums="([\s\S]*?)"\n', text)
+              m = re.search(r'sha512sums="([\s\S]*?)"(?:\n|$)', text)
               if m:
                   for line in m.group(1).splitlines():
-                      parts = line.split()
-                      if len(parts) == 2:
+                      parts = line.replace("\\", " ").split()
+                      if len(parts) >= 2 and len(parts[0]) == 128:
                           old[parts[1]] = parts[0]
 
               m = re.search(r'source="([\s\S]*?)"\n', text)
@@ -210,7 +210,8 @@ jobs:
 
               lines = []
               for item in m.group(1).split():
-                  name = item.split("::", 1)[0] if "::" in item else item.rsplit("/", 1)[-1]
+                  raw = item.split("::", 1)[0] if "::" in item else item.rsplit("/", 1)[-1]
+                  name = raw
                   for _ in range(3):
                       for key in sorted(variables, key=len, reverse=True):
                           name = name.replace("${" + key + "}", variables[key])
@@ -218,14 +219,14 @@ jobs:
                   path = d / name
                   if path.is_file():
                       h = hashlib.sha512(path.read_bytes()).hexdigest()
-                  elif name in old:
-                      h = old[name]          # remote source, fetched by abuild
+                  elif name in old or raw in old:
+                      h = old.get(name) or old[raw]  # remote source, fetched by abuild
                       print(f"   keeping hash of remote source {name}")
                   else:
                       sys.exit(f"no way to hash {path}")
                   lines.append(f"{h}  {name}")
               block = 'sha512sums="\n' + "\n".join(lines) + '\n"\n'
-              apk.write_text(re.sub(r'sha512sums="[\s\S]*?"\n', block, text, count=1))
+              apk.write_text(re.sub(r'sha512sums="[\s\S]*?"(?:\n|$)', block, text, count=1))
               print(f"== {pkg}")
               for line in lines:
                   print("   " + line)
