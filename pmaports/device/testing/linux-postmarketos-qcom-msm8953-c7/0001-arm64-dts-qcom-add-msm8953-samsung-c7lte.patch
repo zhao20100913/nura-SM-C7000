@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..c255181
+index 0000000..c64047f
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,304 @@
+@@ -0,0 +1,310 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -256,7 +256,13 @@ index 0000000..c255181
 +	 * Start from the usual msm8953 set and add the tail pages that
 +	 * Qualcomm boards with a Samsung ABL are known to protect.
 +	 */
-+	gpio-reserved-ranges = <0 4>, <16 4>, <135 7>;
++	/* Only the pins our drivers actually use stay enabled: 4/5 UART, 24/50/94 panel,
++	 * 59/95 touch, 85/86 keys, 133 SD card detect, 135/136 i2c7. Reading the
++	 * control register of any other pin raises a synchronous external abort on
++	 * this bootloader (verified for pin 0 and pin 12), so the rest is reserved.
++	 */
++	gpio-reserved-ranges = <0 4>, <6 18>, <25 25>, <51 8>,
++			       <60 25>, <87 7>, <96 37>, <134 1>, <137 5>;
 +
 +	gpio_keys_default: gpio-keys-default-state {
 +		pins = "gpio85", "gpio86";
