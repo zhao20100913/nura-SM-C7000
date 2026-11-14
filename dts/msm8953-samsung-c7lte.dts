@@ -238,17 +238,19 @@
 
 &tlmm {
 	/*
-	 * These GPIO pages are claimed by the secure world and the SCM call
-	 * that configures them runs before Linux starts; on this platform a
-	 * plain read of one of their registers returns a bus error instead
-	 * of data. gpiolib would otherwise read every line's direction while
-	 * registering the chip, which is exactly what crashed with
-	 * "synchronous external abort" in msm_gpio_get_direction.
+	 * Experiment: none of these lines may be read during gpiochip
+	 * registration. Reading one of them aborts the bus
+	 * ("synchronous external abort" in msm_gpio_get_direction), and
+	 * gpiolib reads the direction of every valid line before
+	 * of_gpiochip_add() has parsed any per-line exceptions.
 	 *
-	 * The same three pages are reserved on every other mainline MSM8953
-	 * board (they come from the firmware, not from the board).
+	 * Reserving every line makes gpiolib skip the whole scan, so the
+	 * kernel can get past pinctrl probe and we can see what the next
+	 * failure is. The realistic set (as on other msm8953 boards) is
+	 * <0 4>, <16 4>, <135 4>; once we know where this device really
+	 * aborts, this becomes a narrow list again.
 	 */
-	gpio-reserved-ranges = <0 4>, <16 4>, <135 4>;
+	gpio-reserved-ranges = <0 142>;
 
 	gpio_keys_default: gpio-keys-default-state {
 		pins = "gpio85", "gpio86";
