@@ -35,7 +35,7 @@ deviceinfo_flash_offset_second="0x00f00000"
 deviceinfo_flash_offset_tags="0x00000100"
 deviceinfo_flash_pagesize="2048"
 
-deviceinfo_kernel_cmdline="console=ttyMSM0,115200n8"
+deviceinfo_kernel_cmdline="console=ttyMSM0,115200n8 lk2nd.pass-ramoops"
 deviceinfo_drm="true"
 deviceinfo_screen_width="1080"
 deviceinfo_screen_height="1920"
