@@ -181,7 +181,55 @@ jobs:
       - name: Recompute checksums
         run: |
           # Keeps the APKBUILDs valid when dts/, config or files change.
-          pmbootstrap checksum "$KPKG" "device-$DEVICE"
+          # Done here with hashlib instead of `pmbootstrap checksum`: abuild
+          # rewrites the block itself and got confused by the "name::url"
+          # form, rewriting a source line with a hash. This is deterministic,
+          # prints what it produced, and keeps the hash of remote sources.
+          python3 - "$PMAPORTS" "$KPKG" "device-$DEVICE" <<'PY'
+          import hashlib, pathlib, re, sys
+
+          root = pathlib.Path(sys.argv[1])
+          for pkg in sys.argv[2:]:
+              d = root / "device" / "testing" / pkg
+              apk = d / "APKBUILD"
+              text = apk.read_text()
+
+              old = {}
+              m = re.search(r'sha512sums="([\s\S]*?)"\n', text)
+              if m:
+                  for line in m.group(1).splitlines():
+                      parts = line.split()
+                      if len(parts) == 2:
+                          old[parts[1]] = parts[0]
+
+              m = re.search(r'source="([\s\S]*?)"\n', text)
+              if not m:
+                  print(f"== {pkg}: no sources, skipped")
+                  continue
+              variables = dict(re.findall(r"^(_?[a-z_]+)=[\"']?([^\"'\n]+)[\"']?$", text, re.M))
+
+              lines = []
+              for item in m.group(1).split():
+                  name = item.split("::", 1)[0] if "::" in item else item.rsplit("/", 1)[-1]
+                  for _ in range(3):
+                      for key in sorted(variables, key=len, reverse=True):
+                          name = name.replace("${" + key + "}", variables[key])
+                          name = name.replace("$" + key, variables[key])
+                  path = d / name
+                  if path.is_file():
+                      h = hashlib.sha512(path.read_bytes()).hexdigest()
+                  elif name in old:
+                      h = old[name]          # remote source, fetched by abuild
+                      print(f"   keeping hash of remote source {name}")
+                  else:
+                      sys.exit(f"no way to hash {path}")
+                  lines.append(f"{h}  {name}")
+              block = 'sha512sums="\n' + "\n".join(lines) + '\n"\n'
+              apk.write_text(re.sub(r'sha512sums="[\s\S]*?"\n', block, text, count=1))
+              print(f"== {pkg}")
+              for line in lines:
+                  print("   " + line)
+          PY
 
       - name: Build the C7 kernel and device packages
         run: |

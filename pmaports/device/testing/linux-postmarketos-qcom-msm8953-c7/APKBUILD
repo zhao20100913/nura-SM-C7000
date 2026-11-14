@@ -36,7 +36,7 @@ _tag="$pkgver-r0"
 source="
 	$pkgname-v$_tag.tar.gz::$url/archive/v$_tag.tar.gz
 	config-$_flavor.aarch64
-74a22bb30144b57bc5f6b7449ec672fb4362c259b750130e70095dac3c5e766605c8423983efd4ed87321ce0f4d5b200b4ee012f4b543953956370369f6918ae  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch
+	0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch
 "
 builddir="$srcdir/linux-$_tag"
 
