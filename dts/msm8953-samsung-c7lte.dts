@@ -244,13 +244,13 @@
 	 * gpiolib reads the direction of every valid line before
 	 * of_gpiochip_add() has parsed any per-line exceptions.
 	 *
-	 * Reserving every line makes gpiolib skip the whole scan, so the
-	 * kernel can get past pinctrl probe and we can see what the next
-	 * failure is. The realistic set (as on other msm8953 boards) is
-	 * <0 4>, <16 4>, <135 4>; once we know where this device really
-	 * aborts, this becomes a narrow list again.
+	 * Reserving every line made the kernel get past pinctrl probe (the
+	 * earlier all-valid attempt died in msm_gpio_get_direction), so the
+	 * abort is caused by one of the extra pages this bootloader locks.
+	 * Start from the usual msm8953 set and add the tail pages that
+	 * Qualcomm boards with a Samsung ABL are known to protect.
 	 */
-	gpio-reserved-ranges = <0 142>;
+	gpio-reserved-ranges = <0 4>, <16 4>, <135 7>;
 
 	gpio_keys_default: gpio-keys-default-state {
 		pins = "gpio85", "gpio86";
