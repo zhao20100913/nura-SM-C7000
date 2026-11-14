@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..37fda33
+index 0000000..521b271
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,257 @@
+@@ -0,0 +1,262 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -46,11 +46,16 @@ index 0000000..37fda33
 +	 * Both properties are mandatory: dtbTool turns every
 +	 * (qcom,msm-id, qcom,board-id) pair into one QCDT entry, and a dtb
 +	 * without qcom,msm-id is dropped with "No valid dtbs found".
-+	 * 0x125 is QCOM_ID_MSM8953. board-id is <variant subtype>: the
-+	 * downstream C7 tree says 8/4, while the lk2nd image that actually
-+	 * booted on this phone carries 8/3, so ship both. */
++	 * 0x125 is QCOM_ID_MSM8953. board-id is <variant subtype>, and the
++	 * three boot paths disagree about the subtype:
++	 *   8/0  what lk2nd itself derives from SMEM (variant 8, subtype 0);
++	 *        lk2nd logs "Unable to find suitable device tree for device
++	 *        (293/0x00010001/0x00010008/0)" without this entry
++	 *   8/3  what the lk2nd image that boots on this phone advertises
++	 *   8/4  what the Samsung downstream C7 tree uses
++	 * Ship all three so both the ABL and the lk2nd path can pick it. */
 +	qcom,msm-id = <0x125 0x0>;
-+	qcom,board-id = <8 3>, <8 4>;
++	qcom,board-id = <8 0>, <8 3>, <8 4>;
 +
 +	/* msm8953.dtsi names it memory@10000000, but both Samsung's ABL and
 +	 * LK patch the node at the literal path "/memory". Without the
