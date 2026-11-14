@@ -2,7 +2,7 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=device-samsung-c7lte
 pkgver=0.1
-pkgrel=3
+pkgrel=4
 pkgdesc="Samsung Galaxy C7 (SM-C7000)"
 url="https://gitlab.nura.eco/nura/pmaports"
 arch="aarch64"
@@ -34,6 +34,6 @@ package() {
 }
 
 sha512sums="
-7bd2f947109a9b943f294114ef8c047656fe0e9feb01d63c6cb9ffd8aaf0061432aca50cc2c4549a994987c520cbddb859e17c06bd1bc944c4d06674ba952907  deviceinfo
-621201b5fccd6930bb80240811cba77d790cd8b1ab8f1ad8cebd2f8e4ec5bfe95f0b8fedac33a8bc7babd2cc19af61b0e6d834b6ae8cb59268114caa9a121764  kernel-cmdline.conf
+79ef102dcc86e5b5120788929f672cfe941950c01216ffd351da0bed6d914b1205aabca3ae65d68b9252e1911701ea23c197dfe628326e02566586d0799b7ad9  deviceinfo
+7cf559300642af62b5680281a8cbce94748b0351419c86774f7bafa9f2042b375e7e50bf22cec4c03829733a0aef6d148d3b763c583ffd47e1ba3a03edd5237d  kernel-cmdline.conf
 "
