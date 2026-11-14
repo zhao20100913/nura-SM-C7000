@@ -151,6 +151,12 @@ jobs:
           # full kernel build. Hand the cached trees back to pmos.
           pmbootstrap chroot -- chown -R pmos:pmos /mnt/pmbootstrap/packages || true
           pmbootstrap chroot -- chown -R pmos:pmos /mnt/pmbootstrap/cache_ccache_aarch64 || true
+          # The cached package index was signed by a previous runner's
+          # throwaway abuild key. abuild verifies it against the current key
+          # and refuses with "APKINDEX.tar.gz: UNTRUSTED signature" right
+          # after a successful 40-minute kernel build. Drop the index so it is
+          # regenerated (and re-signed) with this runner's key.
+          sudo rm -f "$PMB_WORK"/packages/*/*/APKINDEX.tar.gz*
 
       - name: Prefetch the kernel source tarball
         run: |
