@@ -35,8 +35,16 @@
 
 	/* Same identification the Samsung downstream DTB uses. The
 	 * bootloader picks this FDT out of the QCDT table in boot.img and
-	 * patches /memory below with the real RAM size. */
-	qcom,board-id = <8 4>;
+	 * patches /memory below with the real RAM size.
+	 *
+	 * Both properties are mandatory: dtbTool turns every
+	 * (qcom,msm-id, qcom,board-id) pair into one QCDT entry, and a dtb
+	 * without qcom,msm-id is dropped with "No valid dtbs found".
+	 * 0x125 is QCOM_ID_MSM8953. board-id is <variant subtype>: the
+	 * downstream C7 tree says 8/4, while the lk2nd image that actually
+	 * booted on this phone carries 8/3, so ship both. */
+	qcom,msm-id = <0x125 0x0>;
+	qcom,board-id = <8 3>, <8 4>;
 
 	/* msm8953.dtsi names it memory@10000000, but both Samsung's ABL and
 	 * LK patch the node at the literal path "/memory". Without the

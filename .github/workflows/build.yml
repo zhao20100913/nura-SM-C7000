@@ -200,12 +200,17 @@ jobs:
           images="$PMB_WORK/chroot_native/home/pmos/rootfs"
           rc=1
           for attempt in 1 2; do
-            if pmbootstrap -y --details-to-stdout install \
-                 --split --password 147147; then
-              rc=0
+            # Capture the exit status of the command itself. Reading $? after
+            # an "if cmd; then" compound yields the status of the "if", which
+            # is 0 when the branch is not taken -- that bug made a failed
+            # install look successful and hid the real mkinitfs error.
+            set +e
+            pmbootstrap -y --details-to-stdout install --split --password 147147
+            rc=$?
+            set -e
+            if [ "$rc" -eq 0 ]; then
               break
             fi
-            rc=$?
             echo "::warning::install attempt $attempt exited $rc"
             # Known runner flake: teardown fails on "umount: .../usr/bin/
             # qemu-aarch64-static: target is busy" although the image has
@@ -216,12 +221,10 @@ jobs:
           done
 
           ls -l "$images" || true
-          if [ "$rc" -ne 0 ]; then
-            if [ -s "$images/$DEVICE-root.img" ] && [ -s "$images/$DEVICE-boot.img" ]; then
-              echo "::warning::install exited $rc but both images exist; continuing"
-            else
-              exit "$rc"
-            fi
+          # The images are the contract, not the exit code.
+          if [ ! -s "$images/$DEVICE-root.img" ] || [ ! -s "$images/$DEVICE-boot.img" ]; then
+            echo "::error::pmbootstrap install produced no image (last exit $rc)"
+            exit 1
           fi
 
       - name: Export flashable artifacts
