@@ -6,7 +6,7 @@ maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 _flavor="postmarketos-qcom-msm8953-c7"
 pkgname=linux-$_flavor
 pkgver=7.1.3
-pkgrel=8
+pkgrel=9
 pkgdesc="Mainline kernel for the Samsung Galaxy C7 (SM-C7000), MSM8953"
 arch="aarch64"
 _carch="arm64"
@@ -37,6 +37,7 @@ source="
 	$pkgname-v$_tag.tar.gz::$url/archive/v$_tag.tar.gz
 	config-$_flavor.aarch64
 	0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch
+	panel-samsung-s6e3fa3.c
 "
 builddir="$srcdir/linux-$_tag"
 
@@ -50,6 +51,22 @@ prepare() {
 	# (it only adds a new file), so it does not rot with every rebase.
 	echo 'dtb-$(CONFIG_ARCH_QCOM) += msm8953-samsung-c7lte.dtb' \
 		>> arch/arm64/boot/dts/qcom/Makefile
+
+	# The S6E3FA3 panel driver is kept next to this APKBUILD (a new file
+	# in the kernel tree) so it can be reviewed on its own. Register it
+	# here for the same reason: no context lines to rot.
+	cp "$srcdir"/panel-samsung-s6e3fa3.c drivers/gpu/drm/panel/
+	echo 'obj-$(CONFIG_DRM_PANEL_SAMSUNG_S6E3FA3) += panel-samsung-s6e3fa3.o' \
+		>> drivers/gpu/drm/panel/Makefile
+	cat >> drivers/gpu/drm/panel/Kconfig <<-KCONF
+
+	config DRM_PANEL_SAMSUNG_S6E3FA3
+		tristate "Samsung S6E3FA3 AMS568HN31 panel"
+		depends on DRM_MIPI_DSI
+		help
+		  Say Y here if you want to enable support for the Samsung
+		  S6E3FA3 AMS568HN31 panel found in the Galaxy C7.
+	KCONF
 }
 
 build() {
@@ -81,9 +98,7 @@ package() {
 # linux-postmarketos-qcom-msm8953-v7.1.3-r0: same URL, same bytes. CI runs
 # "pmbootstrap checksum" anyway, so any drift is fixed automatically.
 sha512sums="\
-	a57d343c41065df0d41c7005aee07855e7d7aea592327f97c219d8109c10a60b08f54f494a132b4d1d3a549fb4dbffb523e8f49415c0905805f1332f4ddf2dcc \
-	c2c568d845442af1ca59e16eb19023e5d2436b6194ac05ddf4dc15159a82e42305ff45ba782b23ccfed5818d5a576e87519be3ef767a29a29114fbf0bc2dfb30 \
-	47d40a757a91b21d08da736ef7563ef0d50dfc4968bc303601d71caaab38829c8db981cc40fa65823575af6ec8d030821517ed3b43ae33cc0a39458c391ccb4f \
-	config-postmarketos-qcom-msm8953-c7.aarch64 \
-	74a22bb30144b57bc5f6b7449ec672fb4362c259b750130e70095dac3c5e766605c8423983efd4ed87321ce0f4d5b200b4ee012f4b543953956370369f6918ae \
-	0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch"
+	a57d343c41065df0d41c7005aee07855e7d7aea592327f97c219d8109c10a60b08f54f494a132b4d1d3a549fb4dbffb523e8f49415c0905805f1332f4ddf2dcc  $pkgname-v$_tag.tar.gz \
+	f70d633b8c8d8b5db8664a6a8e91608233c5b65f867709b22e1773c8f9ca4832402fcf5dedf6071af37e44a74bf7b35d4d754a34a7a59b70bade46fb78d130b4  config-$_flavor.aarch64 \
+	4b16d432a3fac1b08f3176a63ce585e1830c7bd6bdcc71bca3ccb8aab9144a7fe9dc966b91d5d3380c35c91af4aada79eabd2075fc15a1537a6215514ca0da4b  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch \
+	049a537d68c8b5cf01e5c68adbd7ce1784239ca94f3426b5aa8bd18749e252bc22d3262506925915a68a9ce1bc346ce9b9c3817efc0af58f56fa1a7a9d044aef  panel-samsung-s6e3fa3.c"

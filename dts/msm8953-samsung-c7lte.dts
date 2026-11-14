@@ -275,3 +275,30 @@
 	dr_mode = "peripheral";
 	status = "okay";
 };
+
+/*
+ * Display: Samsung S6E3FA3 AMS568HN31, 1080x1920 command mode AMOLED,
+ * four DSI lanes.  The panel needs VDD (2.85 V, PM8953 L17) and VDDI
+ * (1.8 V, PM8953 L6); the 14 nm DSI PHY wants VCCA (0.925 V, PM8953 L3).
+ * Reset is TLMM GPIO 50; the TE line (GPIO 24) is not muxed yet.
+ */
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0_phy {
+	vcca-supply = <&pm8953_l3>;
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	status = "okay";
+
+	panel@0 {
+		compatible = "samsung,s6e3fa3-ams568hn31";
+		reg = <0>;
+		vdd-supply = <&pm8953_l17>;
+		vddio-supply = <&pm8953_l6>;
+		reset-gpios = <&tlmm 50 GPIO_ACTIVE_LOW>;
+	};
+};
