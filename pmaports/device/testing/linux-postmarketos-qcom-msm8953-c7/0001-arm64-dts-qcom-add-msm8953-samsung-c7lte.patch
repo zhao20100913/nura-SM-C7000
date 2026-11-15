@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..2bc47ea
+index 0000000..721eeef
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,384 @@
+@@ -0,0 +1,467 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -13,9 +13,9 @@ index 0000000..2bc47ea
 + *   arch/arm64/boot/dts/samsung/msm8953/msm8953-sec-c7lte_chn-pinctrl-r02.dtsi
 + * and from mainline msm8953-xiaomi-vince.dts.
 + *
-+ * STATUS: bring-up. Storage (eMMC/SD), UART and USB are wired up.
-+ * Display, touch, WiFi and modem are NOT enabled here: they need drivers
-+ * that do not exist in mainline yet (see docs/04-roadmap.md).
++ * STATUS: bring-up. Storage (eMMC/SD), UART, USB, display, touch, keys and
++ * the WCNSS WiFi block are wired up here.  Sound, sensors, camera and NFC
++ * are still missing (see docs/04-roadmap.md).
 + *
 + * Known C7 wiring (kept here as documentation, do not guess when adding
 + * the drivers):
@@ -74,10 +74,12 @@ index 0000000..2bc47ea
 +
 +	gpio-keys {
 +		compatible = "gpio-keys";
-+		/* Disabled for bring-up: with the pin whitelist applied, the
-+		 * initramfs' check_keys() sees KEY_VOLUMEUP as pressed and
-+		 * calls fail_halt_boot() -> "Creating logs disk". */
-+		status = "disabled";
++		/* The initramfs only calls check_keys() from wait_partition(),
++		 * i.e. while a boot/root partition is still missing.  With a
++		 * flashed userdata partition that never happens, so the keys
++		 * are safe to enable now that gpio_keys requests the lines as
++		 * inputs (GPIOD_IN) instead of trusting the bootloader. */
++		status = "okay";
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&gpio_keys_default>;
 +
@@ -286,6 +288,51 @@ index 0000000..2bc47ea
 +		function = "gpio";
 +		drive-strength = <2>;
 +		bias-pull-up;
++		input-enable;
++	};
++
++	/*
++	 * Panel reset (gpio50) and enable (gpio94).  The downstream Samsung
++	 * pinctrl file only muxes them as plain GPIOs with a pull-down; the
++	 * levels are driven by the panel driver, not by pinctrl.
++	 */
++	mdss_dsi_active: mdss-dsi-active-state {
++		pins = "gpio50", "gpio94";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-down;
++	};
++
++	mdss_dsi_suspend: mdss-dsi-suspend-state {
++		pins = "gpio50", "gpio94";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
++
++	/* TE pin (gpio24) is not used by the mainline driver: MDP5 command
++	 * mode drives its tear check from the internal vsync clock.  Keep the
++	 * mux documented so a future DSI TE implementation can use it. */
++	mdss_te_active: mdss-te-active-state {
++		pins = "gpio24";
++		function = "mdp_vsync";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
++
++	mdss_te_suspend: mdss-te-suspend-state {
++		pins = "gpio24";
++		function = "mdp_vsync";
++		drive-strength = <2>;
++		bias-pull-down;
++	};
++
++	/* MMS449 interrupt line, driven open drain by the controller. */
++	tsp_int_default: tsp-int-default-state {
++		pins = "gpio59";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
 +	};
 +};
 +
@@ -336,6 +383,12 @@ index 0000000..2bc47ea
 +	vddio-supply = <&pm8953_l6>;
 +	status = "okay";
 +
++	/* dsi_host.c selects these with pinctrl_pm_select_default_state()
++	 * and _sleep_state() around host power on/off. */
++	pinctrl-names = "default", "sleep";
++	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
++	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
++
 +	panel@0 {
 +		compatible = "samsung,s6e3fa3-ams568hn31";
 +		reg = <0>;
@@ -344,12 +397,39 @@ index 0000000..2bc47ea
 +		vddio-supply = <&pm8953_l6>;
 +
 +		reset-gpios = <&tlmm 50 GPIO_ACTIVE_LOW>;
++		enable-gpios = <&tlmm 94 GPIO_ACTIVE_HIGH>;
 +
 +		port {
 +			panel_in: endpoint {
 +				remote-endpoint = <&mdss_dsi0_out>;
 +			};
 +		};
++	};
++};
++
++/*
++ * Touch: Melfas MMS449 on BLSP2 QUP3 (i2c_7) at 0x48.  The controller is
++ * powered from a switch on gpio95 (vdd_en, active high) and raises its
++ * interrupt line (gpio59) when an event packet is queued.  It has no reset
++ * line and needs no firmware download.
++ */
++&i2c_7 {
++	status = "okay";
++
++	touchscreen@48 {
++		compatible = "melfas,mms449";
++		reg = <0x48>;
++
++		interrupt-parent = <&tlmm>;
++		interrupts = <59 IRQ_TYPE_LEVEL_LOW>;
++
++		pinctrl-names = "default";
++		pinctrl-0 = <&tsp_int_default>;
++
++		enable-gpios = <&tlmm 95 GPIO_ACTIVE_HIGH>;
++
++		touchscreen-size-x = <1080>;
++		touchscreen-size-y = <1920>;
 +	};
 +};
 +
@@ -366,10 +446,13 @@ index 0000000..2bc47ea
 +/*
 + * WiFi: Qualcomm WCNSS (Pronto v3) + an external 802.11ac companion.  The
 + * C7 is a Snapdragon 625 device with 11ac, so the iris is a WCN3680.
-+ * The radio firmware itself comes from the phone's apnhlos partition
-+ * (msm-firmware-loader mounts it); no regulator is needed here because the
-+ * pronto-v3 binding uses the RPM power domains (cx/mx) and the iris rails
-+ * are handled by the WCNSS firmware handshake.
++ * The radio firmware (wcnss.mdt, wcnss.b* and WCNSS_qcom_wlan_nv.bin) comes
++ * from the phone's apnhlos partition (msm-firmware-loader mounts it) plus
++ * the NV blob shipped by device-samsung-c7lte.
++ *
++ * The WCNSS remoteproc is not auto-booted by the kernel, so userspace has to
++ * write "start" to /sys/class/remoteproc/remoteprocN/state before the wcn36xx
++ * driver can open its SMD channels; see /etc/local.d/10-wcnss.start.
 + */
 +&wcnss {
 +	/* pronto-v3 rail; the cx/mx core rails come from the RPM power

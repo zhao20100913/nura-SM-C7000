@@ -1,0 +1,29 @@
+#!/bin/sh
+# The WCNSS (WiFi/BT) remoteproc is not auto-booted by the kernel: without
+# someone writing "start" to its sysfs state the WCN3680 companion never
+# probes.  msm-firmware-loader has to have published the firmware from the
+# apnhlos partition first, so give it a few seconds, then boot the remote
+# processor and load the WLAN driver.
+
+state=/sys/class/remoteproc
+target=/sys/module/firmware_class/parameters/path
+
+i=0
+while [ "$i" -lt 15 ]; do
+	[ -e "$target" ] && grep -q msm-firmware-loader "$target" 2>/dev/null && break
+	i=$((i + 1))
+	sleep 1
+done
+
+for rp in "$state"/remoteproc*; do
+	[ -e "$rp/name" ] || continue
+	case "$(cat "$rp/name" 2>/dev/null)" in
+	*wcnss*)
+		[ "$(cat "$rp/state" 2>/dev/null)" = "offline" ] || continue
+		echo "wcnss: starting $(basename "$rp") ($(cat "$rp/name"))"
+		echo start > "$rp/state" || echo "wcnss: failed to start $(basename "$rp")"
+		;;
+	esac
+done
+
+modprobe wcn36xx 2>/dev/null || true
