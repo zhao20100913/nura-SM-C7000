@@ -37,7 +37,7 @@
 | `pmaports/device/testing/linux-postmarketos-qcom-msm8953-c7/` | 内核包：社区 MSM8953 配置 + C7 的 DTS 补丁 |
 | `scripts/check-dts.sh` | 在本地编译板级 dts（只拉取所需的 SoC include 文件） |
 | `.github/workflows/build.yml` | GitHub Actions 流水线：用 pmbootstrap 构建 `boot.img` + rootfs |
-| `docs/` | 可行性、CI 细节、刷机说明、路线图、lk2nd 笔记 |
+| `docs/` | 可行性、CI 细节、刷机说明、路线图、lk2nd 笔记、WiFi、调试、[真机验收](docs/08-acceptance.md) |
 
 ## 快速上手（在云端构建）
 
