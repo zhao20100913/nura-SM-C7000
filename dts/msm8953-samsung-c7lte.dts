@@ -416,7 +416,7 @@
 		reg = <0x48>;
 
 		interrupt-parent = <&tlmm>;
-		interrupts = <59 IRQ_TYPE_LEVEL_LOW>;
+		interrupts = <59 IRQ_TYPE_EDGE_FALLING>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&tsp_int_default>;
