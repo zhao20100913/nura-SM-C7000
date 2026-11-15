@@ -139,7 +139,8 @@ static int s6e3fa3_panel_prepare(struct drm_panel *panel)
 	/* LCD_LDO_EN: the load switch that connects vdd (pm8953_l17) to the
 	 * panel. Without it the panel stays unpowered no matter what the DSI
 	 * link does. */
-	gpiod_set_value_cansleep(ctx->enable_gpio, 1);
+	if (ctx->enable_gpio)
+		gpiod_set_value_cansleep(ctx->enable_gpio, 1);
 	usleep_range(10000, 11000);
 
 	s6e3fa3_panel_reset(ctx);
@@ -151,7 +152,8 @@ static int s6e3fa3_panel_prepare(struct drm_panel *panel)
 	return 0;
 
 err_reset:
-	gpiod_set_value_cansleep(ctx->enable_gpio, 0);
+	if (ctx->enable_gpio)
+		gpiod_set_value_cansleep(ctx->enable_gpio, 0);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	regulator_disable(ctx->vdd);
 err_vdd:
@@ -166,7 +168,8 @@ static int s6e3fa3_panel_unprepare(struct drm_panel *panel)
 
 	s6e3fa3_panel_off(ctx->dsi);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-	gpiod_set_value_cansleep(ctx->enable_gpio, 0);
+	if (ctx->enable_gpio)
+		gpiod_set_value_cansleep(ctx->enable_gpio, 0);
 	regulator_disable(ctx->vdd);
 	regulator_disable(ctx->vddio);
 
@@ -291,7 +294,8 @@ static int s6e3fa3_panel_probe(struct mipi_dsi_device *dsi)
 		return dev_err_probe(dev, PTR_ERR(ctx->reset_gpio),
 				     "Failed to get reset-gpios\n");
 
-	ctx->enable_gpio = devm_gpiod_get(dev, "enable", GPIOD_OUT_LOW);
+	ctx->enable_gpio = devm_gpiod_get_optional(dev, "enable",
+						   GPIOD_OUT_LOW);
 	if (IS_ERR(ctx->enable_gpio))
 		return dev_err_probe(dev, PTR_ERR(ctx->enable_gpio),
 				     "Failed to get enable-gpios\n");

@@ -36,6 +36,10 @@
 #define MMS449_EVENT_SIZE	8
 #define MMS449_RETRIES		3
 
+/* Only used if the controller does not report its own resolution. */
+#define MMS449_DEFAULT_WIDTH	1080
+#define MMS449_DEFAULT_HEIGHT	1920
+
 /* MIP register pages */
 #define MMS_PAGE_INFO		0x01
 #define MMS_PAGE_EVENT		0x02
@@ -190,6 +194,32 @@ static void mms449_power_off(struct mms449 *ts)
 	msleep(10);
 }
 
+static int mms449_read_info(struct mms449 *ts, u8 *info)
+{
+	int ret;
+
+	ret = mms449_i2c_read(ts, MMS_PAGE_INFO, MMS_INFO_PRODUCT_NAME,
+			      info, 16);
+	if (ret)
+		return ret;
+
+	dev_info(&ts->client->dev, "MMS449: product \"%*pE\"\n", 16, info);
+
+	ret = mms449_i2c_read(ts, MMS_PAGE_INFO, MMS_INFO_RESOLUTION_X,
+			      info, 7);
+	if (ret)
+		return ret;
+
+	ts->max_x = info[0] | (info[1] << 8);
+	ts->max_y = info[2] | (info[3] << 8);
+	if (!ts->max_x || !ts->max_y) {
+		ts->max_x = MMS449_DEFAULT_WIDTH;
+		ts->max_y = MMS449_DEFAULT_HEIGHT;
+	}
+
+	return 0;
+}
+
 static int mms449_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
@@ -223,27 +253,23 @@ static int mms449_probe(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	ret = mms449_i2c_read(ts, MMS_PAGE_INFO, MMS_INFO_PRODUCT_NAME,
-			      info, sizeof(info));
+	ret = mms449_read_info(ts, info);
+	if (ret) {
+		/* The controller may still be in whatever state the
+		 * bootloader left it in; a power cycle makes it re-sync. */
+		dev_warn(dev, "chip info unreadable (%d), retrying\n", ret);
+		mms449_power_off(ts);
+		usleep_range(10000, 11000);
+		ret = mms449_power_on(ts);
+		if (ret)
+			return ret;
+		ret = mms449_read_info(ts, info);
+	}
 	if (ret) {
 		dev_err(dev, "Cannot read chip info: %d\n", ret);
 		goto err_power;
 	}
-	dev_info(dev, "MMS449: product \"%*pE\"\n", (int)sizeof(info), info);
 
-	ret = mms449_i2c_read(ts, MMS_PAGE_INFO, MMS_INFO_RESOLUTION_X,
-			      info, 7);
-	if (ret) {
-		dev_err(dev, "Cannot read resolution: %d\n", ret);
-		goto err_power;
-	}
-
-	ts->max_x = info[0] | (info[1] << 8);
-	ts->max_y = info[2] | (info[3] << 8);
-	if (!ts->max_x || !ts->max_y) {
-		ts->max_x = 1080;
-		ts->max_y = 1920;
-	}
 	ts->event_size = MMS449_EVENT_SIZE;
 
 	dev_info(dev, "MMS449: %ux%u\n", ts->max_x, ts->max_y);
