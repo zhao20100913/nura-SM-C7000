@@ -57,6 +57,30 @@ The downstream tree only ever inits `l9` at 3.0 V and `l19` at 1.2 V, so the
 device tree gives both a range (`3.0-3.3 V`, `1.2-1.35 V`) and lets the
 driver raise them, instead of hard-coding a single value.
 
+## Booting the remoteproc
+
+`qcom_wcnss` never sets `rproc->auto_boot`, and nothing in the postmarketOS
+rootfs writes to `/sys/class/remoteproc/`, so the WCNSS stays offline forever
+unless userspace starts it. `device-samsung-c7lte` therefore ships
+`/etc/local.d/10-wcnss.start`, which OpenRC runs from its `local` service:
+
+* it waits up to 15 s for `msm-firmware-loader` to repoint
+  `firmware_class.path` (the loader runs late in `sysinit`),
+* then writes `start` to the state file of every `/sys/class/remoteproc/*`
+  whose name matches `*wcnss*`,
+* and finally modprobes `wcn36xx` (the rpmsg channel normally triggers udev
+  on its own, this is only a fallback).
+
+Booting the target by hand, e.g. before the service ever ran:
+
+```sh
+for rp in /sys/class/remoteproc/remoteproc*; do
+	cat "$rp/name" "$rp/state"
+done
+echo start | sudo tee /sys/class/remoteproc/remoteproc0/state
+sudo modprobe wcn36xx
+```
+
 ## Checking the result
 
 Once the phone is up:
@@ -90,6 +114,9 @@ If probe stops early, the most likely messages are:
 ## Known unfinished bits
 
 * Bluetooth (`wcnss_bt`) is not wired to a UART yet.
+* The remoteproc is started from an OpenRC `local.d` script rather than a
+  proper service; upstreaming it as a `qcom-wcnss-pil` init script would be
+  the clean fix.
 * The `qcom,smsm` "can't parse mboxes" warning is inherited from
   `msm8953.dtsi`; it has not been observed to block WiFi, but if the wcn36xx
   probe fails late, override `&smsm { mboxes = ...; }` in the board DTS next.
