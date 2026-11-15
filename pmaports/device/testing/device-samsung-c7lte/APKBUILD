@@ -2,7 +2,7 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=device-samsung-c7lte
 pkgver=0.1
-pkgrel=5
+pkgrel=6
 pkgdesc="Samsung Galaxy C7 (SM-C7000)"
 url="https://gitlab.nura.eco/nura/pmaports"
 arch="aarch64"
@@ -23,6 +23,7 @@ makedepends="devicepkg-dev"
 source="
 	deviceinfo
 	kernel-cmdline.conf
+	WCNSS_qcom_wlan_nv.bin
 "
 
 build() {
@@ -31,8 +32,15 @@ build() {
 
 package() {
 	devicepkg_package "$startdir" "$pkgname"
+
+	# The WLAN NV calibration blob is not on any partition: Samsung keeps it
+	# inside system.img (/vendor/firmware/wlan/prima) and wcn36xx insists on
+	# "wlan/prima/WCNSS_qcom_wlan_nv.bin" before it will download firmware.
+	install -Dm644 "$srcdir"/WCNSS_qcom_wlan_nv.bin \
+		"$pkgdir"/usr/lib/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin
 }
 
 sha512sums="\
 	7bd2f947109a9b943f294114ef8c047656fe0e9feb01d63c6cb9ffd8aaf0061432aca50cc2c4549a994987c520cbddb859e17c06bd1bc944c4d06674ba952907  deviceinfo \
-	621201b5fccd6930bb80240811cba77d790cd8b1ab8f1ad8cebd2f8e4ec5bfe95f0b8fedac33a8bc7babd2cc19af61b0e6d834b6ae8cb59268114caa9a121764  kernel-cmdline.conf"
+	621201b5fccd6930bb80240811cba77d790cd8b1ab8f1ad8cebd2f8e4ec5bfe95f0b8fedac33a8bc7babd2cc19af61b0e6d834b6ae8cb59268114caa9a121764  kernel-cmdline.conf \
+	abc46606c4f9a2ec3f4f49baf0f601e0e2e8866af0c086bb62bdeafdf31f8a11c4dca5671d67e0412f0c617f77f23e02a777344de8d0f792f208ab3f01c5122d  WCNSS_qcom_wlan_nv.bin"

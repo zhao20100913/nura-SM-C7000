@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..a60cdf8
+index 0000000..2bc47ea
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,384 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -185,6 +185,13 @@ index 0000000..a60cdf8
 +			regulator-system-load = <800000>;
 +		};
 +
++		/* iris vddpa: downstream runs this rail at 3.0 V and lets the
++		 * WCN3680 driver bump it to 3.3 V. */
++		pm8953_l9: l9 {
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3300000>;
++		};
++
 +		pm8953_l10: l10 {
 +			regulator-min-microvolt = <2700000>;
 +			regulator-max-microvolt = <3300000>;
@@ -212,6 +219,12 @@ index 0000000..a60cdf8
 +		pm8953_l17: l17 {
 +			regulator-min-microvolt = <2750000>;
 +			regulator-max-microvolt = <2850000>;
++		};
++
++		/* iris vddrfa: downstream init 1.2 V, wcn3680 asks for 1.3 V. */
++		pm8953_l19: l19 {
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1350000>;
 +		};
 +	};
 +};
@@ -359,9 +372,19 @@ index 0000000..a60cdf8
 + * are handled by the WCNSS firmware handshake.
 + */
 +&wcnss {
++	/* pronto-v3 rail; the cx/mx core rails come from the RPM power
++	 * domains already described in msm8953.dtsi. */
++	vddpx-supply = <&pm8953_l5>;
 +	status = "okay";
 +};
 +
 +&wcnss_iris {
 +	compatible = "qcom,wcn3680";
++
++	/* qcom_wcnss_iris requests all four rails unconditionally
++	 * (drivers/remoteproc/qcom_wcnss_iris.c, wcn3680_data). */
++	vddxo-supply = <&pm8953_l7>;
++	vddrfa-supply = <&pm8953_l19>;
++	vddpa-supply = <&pm8953_l9>;
++	vdddig-supply = <&pm8953_l5>;
 +};
