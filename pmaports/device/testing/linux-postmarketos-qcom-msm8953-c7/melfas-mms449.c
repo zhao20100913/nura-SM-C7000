@@ -31,6 +31,7 @@
 #include <linux/input/mt.h>
 #include <linux/input/touchscreen.h>
 #include <linux/module.h>
+#include <linux/workqueue.h>
 
 #define MMS449_MAX_FINGERS	10
 #define MMS449_EVENT_SIZE	8
@@ -67,6 +68,7 @@ struct mms449 {
 	unsigned int max_x;
 	unsigned int max_y;
 	u8 event_size;
+	struct delayed_work poll_work;
 };
 
 static int mms449_i2c_read(struct mms449 *ts, u8 page, u8 reg, u8 *buf, int len)
@@ -146,9 +148,8 @@ static void mms449_report(struct mms449 *ts, unsigned int size, const u8 *data)
 	input_sync(input);
 }
 
-static irqreturn_t mms449_irq(int irq, void *data)
+static void mms449_read_events(struct mms449 *ts)
 {
-	struct mms449 *ts = data;
 	u8 buf[1 + MMS449_EVENT_SIZE * MMS449_MAX_FINGERS];
 	unsigned int size, extra;
 	int ret;
@@ -156,11 +157,11 @@ static irqreturn_t mms449_irq(int irq, void *data)
 	ret = mms449_i2c_read(ts, MMS_PAGE_EVENT, MMS_EVENT_PACKET_INFO,
 			      buf, 1 + ts->event_size);
 	if (ret)
-		return IRQ_HANDLED;
+		return;
 
 	/* Alert packets (ESD, wakeup gesture) carry no touch data. */
 	if (buf[0] & MMS_EVENT_ALERT)
-		return IRQ_HANDLED;
+		return;
 
 	size = buf[0] & 0x7f;
 	if (size <= ts->event_size)
@@ -172,12 +173,35 @@ static irqreturn_t mms449_irq(int irq, void *data)
 
 	ret = mms449_i2c_read_cont(ts, buf + 1 + ts->event_size, extra);
 	if (ret)
-		return IRQ_HANDLED;
+		return;
 
 report:
 	mms449_report(ts, size, buf + 1);
+}
 
+static irqreturn_t mms449_irq(int irq, void *data)
+{
+	mms449_read_events(data);
 	return IRQ_HANDLED;
+}
+
+/*
+ * Fallback for boards where the interrupt line is not wired the way the
+ * downstream device tree suggests: poll the event page instead. 10 ms is
+ * fast enough to feel like normal touch input and costs ~100 tiny I2C
+ * transfers per second.
+ */
+static int poll_ms = 10;
+module_param(poll_ms, int, 0644);
+MODULE_PARM_DESC(poll_ms, "poll the event FIFO every N ms (0 = interrupts only)");
+
+static void mms449_poll(struct work_struct *work)
+{
+	struct mms449 *ts = container_of(to_delayed_work(work),
+					 struct mms449, poll_work);
+
+	mms449_read_events(ts);
+	schedule_delayed_work(&ts->poll_work, msecs_to_jiffies(poll_ms));
 }
 
 static int mms449_power_on(struct mms449 *ts)
@@ -300,6 +324,11 @@ static int mms449_probe(struct i2c_client *client)
 		goto err_power;
 	}
 
+	if (poll_ms > 0) {
+		INIT_DELAYED_WORK(&ts->poll_work, mms449_poll);
+		schedule_delayed_work(&ts->poll_work, msecs_to_jiffies(poll_ms));
+	}
+
 	ret = input_register_device(input);
 	if (ret) {
 		dev_err(dev, "Failed to register input device: %d\n", ret);
@@ -320,6 +349,8 @@ static void mms449_remove(struct i2c_client *client)
 {
 	struct mms449 *ts = i2c_get_clientdata(client);
 
+	cancel_delayed_work_sync(&ts->poll_work);
+
 	mms449_power_off(ts);
 }
 
@@ -327,6 +358,7 @@ static int mms449_suspend(struct device *dev)
 {
 	struct mms449 *ts = dev_get_drvdata(dev);
 
+	cancel_delayed_work_sync(&ts->poll_work);
 	disable_irq(ts->client->irq);
 	mms449_power_off(ts);
 
@@ -339,6 +371,8 @@ static int mms449_resume(struct device *dev)
 
 	mms449_power_on(ts);
 	enable_irq(ts->client->irq);
+	if (poll_ms > 0)
+		schedule_delayed_work(&ts->poll_work, msecs_to_jiffies(poll_ms));
 
 	return 0;
 }
