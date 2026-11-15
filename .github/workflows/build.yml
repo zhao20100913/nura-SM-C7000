@@ -152,10 +152,14 @@ jobs:
           pmbootstrap config device
           pmbootstrap config kernel
           # actions/cache restores the package and ccache directories with the
-          # runner's uid. Inside the chroot the build runs as pmos, so abuild
-          # cannot create the .apk and dies with "Permission denied" after a
-          # full kernel build. Hand the cached trees back to pmos.
-          pmbootstrap chroot -- chown -R pmos:pmos /mnt/pmbootstrap/cache_ccache_aarch64 || true
+          # runner's uid. Inside the chroot the build runs as pmos (uid 1000),
+          # so abuild cannot create the .apk or write the ccache and dies with
+          # "Permission denied" after a full kernel build. `pmbootstrap chroot
+          # -- chown` does not help: those paths are not mounted inside the
+          # native chroot. Fix the ownership on the host side instead.
+          sudo chown -R 1000:1000 "$PMB_WORK"/packages || true
+          sudo chown -R 1000:1000 "$PMB_WORK"/cache_ccache_aarch64 || true
+          sudo chmod -R u+rwX "$PMB_WORK"/cache_ccache_aarch64 || true
 
       - name: Prefetch the kernel source tarball
         run: |
