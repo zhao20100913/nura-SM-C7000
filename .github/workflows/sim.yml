@@ -1,0 +1,101 @@
+name: Simulate the initramfs init
+
+# Debug helper: unpack the initramfs out of a boot.img and run its /init
+# under qemu-user + chroot on an x86_64 runner.  Hardware steps fail, but
+# every shell statement is traced (-x), so a script-level `exit 1` shows up
+# with the exact command that caused it.
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_id:
+        description: "artifact id that contains boot.img (empty = newest)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  sim:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Download and unpack initramfs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AID: ${{ inputs.artifact_id }}
+        run: |
+          set -eu
+          if [ -z "$AID" ]; then
+            AID=$(gh api "/repos/${{ github.repository }}/actions/artifacts" --jq '.artifacts[0].id')
+          fi
+          echo "artifact $AID"
+          gh api "/repos/${{ github.repository }}/actions/artifacts/$AID/zip" > a.zip
+          unzip -o -q a.zip -d art
+          python3 -m pip install --quiet zstandard
+          python3 - <<'PY'
+          import io, pathlib, struct
+          import zstandard
+
+          data = next(pathlib.Path("art").rglob("boot.img")).read_bytes()
+          u32 = lambda o: struct.unpack_from("<I", data, o)[0]
+          page, ksz, rsz = u32(36), u32(8), u32(16)
+          align = lambda n: (n + page - 1) // page * page
+          rd = data[align(1632) + align(ksz):][:rsz]
+          if rd[:4].hex() == "28b52ffd":
+              rd = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(rd)).read()
+          root = pathlib.Path("root")
+          pos = 0
+          while pos + 110 <= len(rd):
+              hdr = rd[pos:pos + 110]
+              if hdr[:6] != b"070701":
+                  break
+              f = [int(hdr[6 + 8 * i:14 + 8 * i], 16) for i in range(13)]
+              name = rd[pos + 110:pos + 110 + f[11] - 1].decode()
+              body = (pos + 110 + f[11] + 3) & ~3
+              if name == "TRAILER!!!":
+                  break
+              p = root / name.lstrip("./")
+              mode = f[1]
+              if mode & 0o170000 == 0o040000:
+                  p.mkdir(parents=True, exist_ok=True)
+              elif mode & 0o170000 == 0o120000:
+                  tgt = rd[body:body + f[6]].decode()
+                  p.parent.mkdir(parents=True, exist_ok=True)
+                  if p.exists() or p.is_symlink():
+                      p.unlink()
+                  p.symlink_to(tgt)
+              else:
+                  p.parent.mkdir(parents=True, exist_ok=True)
+                  p.write_bytes(rd[body:body + f[6]])
+                  p.chmod(0o755 if mode & 0o111 else 0o644)
+              pos = (body + f[6] + 3) & ~3
+          print("unpacked to", root)
+          PY
+
+      - name: Get qemu-user-static
+        run: |
+          set -eu
+          sudo apt-get update -qq || true
+          sudo apt-get install -y -qq qemu-user-static || \
+            (curl -fsSL -o /tmp/q.tar.xz https://github.com/multiarch/qemu-user-static/releases/download/v8.2.2-1/qemu-aarch64-static.tar.gz && \
+             tar -xf /tmp/q.tar.xz -C /tmp && sudo install -m 755 /tmp/qemu-aarch64-static /usr/bin/qemu-aarch64-static)
+          sudo test -x /usr/bin/qemu-aarch64-static || (command -v qemu-aarch64-static)
+
+      - name: Run /init under chroot
+        run: |
+          set -eu
+          cd root
+          sudo cp /usr/bin/qemu-aarch64-static ./qemu-aarch64-static
+          for fs in proc sys dev; do sudo mkdir -p $fs; done
+          sudo mount -t proc proc proc || true
+          sudo mount -t sysfs sys sys || true
+          sudo mount -t devtmpfs dev dev || true
+          sudo mkdir -p dev/pts dev/shm
+          sudo mount -t devpts devpts dev/pts || true
+          echo "===== /init -x (first 200 lines) ====="
+          sudo timeout 25 chroot . /bin/busybox ash -x /init 2>&1 | head -200 || true
+          echo "===== exit status: $? ====="
+          echo "===== plain /init (no -x) ====="
+          sudo timeout 20 chroot . /bin/busybox ash /init 2>&1 | tail -40 || true
