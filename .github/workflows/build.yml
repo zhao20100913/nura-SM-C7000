@@ -19,6 +19,10 @@ on:
         description: "pmaports ref to build against"
         required: false
         default: "main"
+      ui:
+        description: "pmaports UI to install (console, phosh, ...)"
+        required: false
+        default: "console"
   push:
     branches: [ main ]
     paths:
@@ -46,6 +50,7 @@ jobs:
       PMB_WORK: ${{ github.workspace }}/.pmb-work
       PMAPORTS: ${{ github.workspace }}/.pmb-work/cache_git/pmaports
       DEVICE: samsung-c7lte
+      UI: ${{ inputs.ui || 'console' }}
       KPKG: linux-postmarketos-qcom-msm8953-c7
 
     steps:
@@ -131,7 +136,7 @@ jobs:
           work = $PMB_WORK
           device = $DEVICE
           kernel = postmarketos-qcom-msm8953-c7
-          ui = console
+          ui = $UI
           user = user
           hostname = c7lte
           locale = en_US.UTF-8
