@@ -175,9 +175,17 @@ err_vddio:
 	return ret;
 }
 
+static bool blank_safe = true;
+module_param(blank_safe, bool, 0644);
+MODULE_PARM_DESC(blank_safe,
+	"skip the DCS off sequence and the rail shutdown when blanking (debug)");
+
 static int s6e3fa3_panel_unprepare(struct drm_panel *panel)
 {
 	struct s6e3fa3_panel *ctx = to_s6e3fa3_panel(panel);
+
+	if (blank_safe)
+		return 0;
 
 	s6e3fa3_panel_off(ctx);
 
@@ -194,6 +202,9 @@ static int s6e3fa3_panel_disable(struct drm_panel *panel)
 {
 	struct s6e3fa3_panel *ctx = to_s6e3fa3_panel(panel);
 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
+
+	if (blank_safe)
+		return 0;
 
 	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
 	mipi_dsi_usleep_range(&dsi_ctx, 10000, 11000);
