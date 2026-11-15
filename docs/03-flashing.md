@@ -1,33 +1,30 @@
-# 03 — Flashing and recovery
+<!-- 英文原版：docs/03-flashing.en.md（本文件为中文翻译） -->
 
-**Read this whole page before flashing.** The Galaxy C7 is a Samsung
-device: there is no fastboot, and the only host tool that talks to download
-mode is **Heimdall** (or Odin on Windows).
+# 03 — 刷机与恢复
 
-## Requirements
+**刷机之前请先通读本页。** Galaxy C7 是一台三星设备：它没有 fastboot，而唯一能与下载模式（Download mode）通信的上位机工具是 **Heimdall**（Windows 上则是 Odin）。
 
-- Unlocked bootloader — check in download mode: `OEM LOCK: OFF`
-- USB data cable
-- Heimdall ≥ 2.0.2 (`apt install heimdall-flash`, Homebrew `heimdall`, or the
-  Windows "Heimdall Suite" — needs the Samsung USB driver)
-- On Linux, a udev rule so the device is accessible without root:
+## 前置要求
+
+- 已解锁 bootloader —— 在下载模式（Download mode）中确认：`OEM LOCK: OFF`
+- USB 数据线
+- Heimdall ≥ 2.0.2（`apt install heimdall-flash`、Homebrew 的 `heimdall`，或者 Windows 的 “Heimdall Suite” —— 后者需要三星 USB 驱动）
+- 在 Linux 上，需要一条 udev 规则，以便无需 root 即可访问设备：
   `ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="04e8", MODE="0666"`
 
-## 1. Back up the partition table
+## 1. 备份分区表
 
-Enter download mode: **Power + Home + Volume Down**, then Volume Up to
-confirm. Then:
+进入下载模式（Download mode）：**电源键 + Home 键 + 音量减**，再按音量加确认。然后执行：
 
 ```sh
 heimdall print-pit --no-reboot --verbose > c7.pit
 ```
 
-Keep `c7.pit`. It is the authoritative partition map for your phone (names
-and offsets) and the reference for everything below.
+请妥善保存 `c7.pit`。它是你这台手机权威的分区映射（包含分区名与偏移），也是下文所有操作的参照。
 
-## 2. Flash the Nura image
+## 2. 刷入 Nura 镜像
 
-From a build artifact (`boot.img`, `samsung-c7lte-root.img`):
+从构建产物（`boot.img`、`samsung-c7lte-root.img`）执行：
 
 ```sh
 heimdall flash \
@@ -36,25 +33,17 @@ heimdall flash \
   --no-reboot
 ```
 
-Notes:
+注意事项：
 
-- `USERDATA` is the same partition Android used for `/data`. **All Android
-  user data is destroyed.** Do not flash `SYSTEM`, `EFS`, `PERSIST`, `PARAM`,
-  `BOOTLOADER*`, `MODEM` or `DSP`.
-- `--no-reboot` keeps the phone in download mode after a successful flash, so
-  a second command can still be issued if something needs re-flashing.
-- The Odin path (`samsung-c7lte.tar.md5`) only contains `boot.img`; the rootfs
-  has to be flashed separately (Odin: `AP` = boot tar, `USERDATA` = rootfs
-  image is *not* supported by Odin for raw images — use Heimdall for that).
+- `USERDATA` 就是 Android 原先用来挂载 `/data` 的那个分区。**Android 的所有用户数据都会被销毁。** 不要刷 `SYSTEM`、`EFS`、`PERSIST`、`PARAM`、`BOOTLOADER*`、`MODEM` 或 `DSP`。
+- `--no-reboot` 会让手机在刷写成功后仍停留在下载模式（Download mode），这样万一还有内容需要重刷，仍可以接着发出第二条命令。
+- Odin 路线（`samsung-c7lte.tar.md5`）只包含 `boot.img`；rootfs 必须单独刷入（Odin：`AP` = boot tar；而 `USERDATA` = rootfs 镜像这一用法，对原始镜像 Odin *并不*支持 —— 这种情况请改用 Heimdall）。
 
-### How the boot image is packaged
+### boot 镜像是怎么打包的
 
-Samsung's aboot on this device is a Qualcomm LK: it reads a **QCDT table**
-from the `dt` area of `boot.img`, picks the entry whose
-`qcom,msm-id`/`qcom,board-id` matches the phone, patches `/memory` with the
-real RAM size and passes that FDT to the kernel.
+本设备上的三星 aboot 是一套 Qualcomm LK：它会从 `boot.img` 的 `dt` 区域读取 **QCDT 表**，挑出 `qcom,msm-id`/`qcom,board-id` 与这台手机匹配的那一项，用真实的 RAM 容量修补 `/memory`，再把该 FDT 传给内核。
 
-Our deviceinfo therefore sets:
+因此我们的 deviceinfo 这样设置：
 
 ```
 deviceinfo_append_dtb="false"
@@ -63,76 +52,52 @@ deviceinfo_bootimg_qcdt_type="qcom"
 deviceinfo_bootimg_append_seandroidenforce="true"
 ```
 
-so boot-deploy builds the table with `dtbTool` and appends the
-`SEANDROIDENFORCE` trailer. Do **not** append the DTB to the kernel image:
-the bootloader then never patches `/memory` and the kernel comes up with
-zero memory (symptom: Samsung logo, `Set Warranty Bit : kernel`, reboot).
+这样 boot-deploy 会用 `dtbTool` 构建该表，并追加 `SEANDROIDENFORCE` 尾部标记。**不要**把 DTB 附加到内核镜像后面：否则 bootloader 就永远不会修补 `/memory`，内核启动时可用内存为零（症状：出现三星 logo、`Set Warranty Bit : kernel`，随后重启）。
 
-### Troubleshooting: logo, then reboot
+### 故障排查：出现 logo 后重启
 
-1. Re-check the dtb inside the image on a Linux host:
+1. 在 Linux 主机上重新检查镜像里的 dtb：
 
    ```sh
    dtc -I dtb -O dts /boot/dtbs/qcom/msm8953-samsung-c7lte.dtb | head -30
    ```
 
-   It must show `/ memory { reg = <0x00 0x80000000 ...>; }` (no unit address),
-   `qcom,msm-id = <0x125 0x00>` and `qcom,board-id = <0x08 ...>`.
-2. Try the lk2nd path instead (see `05-lk2nd.md`): flash `lk2nd.img` to
-   `BOOT`, then `fastboot flash boot boot.img` — lk2nd writes the real image
-   at BOOT+512 KiB and does its own dtb patching.
-3. Capture a log: with lk2nd installed, `fastboot oem log` shows the current
-   session; add `lk2nd.pass-ramoops` to the cmdline and use
-   `fastboot oem ramoops console` to read the previous kernel's console
-   (needs `PSTORE_RAM`).
+   它必须显示 `/ memory { reg = <0x00 0x80000000 ...>; }`（没有单元地址）、`qcom,msm-id = <0x125 0x00>` 以及 `qcom,board-id = <0x08 ...>`。
+2. 改为走 lk2nd 这条路（参见 `05-lk2nd.md`）：把 `lk2nd.img` 刷到 `BOOT`，然后执行 `fastboot flash boot boot.img` —— lk2nd 会把真正的镜像写到 BOOT+512 KiB 处，并自行完成 dtb 修补。
+3. 抓取日志：装好 lk2nd 后，`fastboot oem log` 会显示当前会话；把 `lk2nd.pass-ramoops` 加入 cmdline，再用 `fastboot oem ramoops console` 读取上一次内核的 console 输出（需要 `PSTORE_RAM`）。
 
-## 3. First boot
+## 3. 首次启动
 
-Hold **Power** for ~10 s to leave download mode, then power on normally.
+长按**电源键**约 10 秒退出下载模式（Download mode），然后正常开机。
 
-Expected on this milestone:
+在本里程碑上，预期现象是：
 
-- The phone does **not** show a UI (no panel driver yet) and the screen may
-  stay black after the Samsung logo.
-- The kernel boots, mounts the initramfs, and brings up USB networking.
-  On the host:
+- 手机**不会**显示任何界面（还没有面板驱动），屏幕可能在三星 logo 之后一直保持黑屏。
+- 内核会启动、挂载 initramfs，并拉起 USB 网络。在主机上：
 
 ```sh
 ip addr add 172.16.42.1/16 dev usb0     # once
 telnet 172.16.42.2                       # initramfs shell
 ```
 
-If you only see the Samsung logo and nothing else after ~30 s, the boot image
-was rejected or the kernel panicked early — see *Diagnostics* below.
+如果约 30 秒后你只看到三星 logo、别的什么都没有，说明 boot 镜像被拒绝，或者内核很早就 panic 了 —— 参见下文*诊断*。
 
-## 4. Diagnostics
+## 4. 诊断
 
-- Re-flash only `boot.img` and watch for the Samsung "kernel is not
-  seandroid enforcing" style warnings (they are normal on unlocked devices).
-- Serial console: there are no exposed UART pads on the C7, so the practical
-  channel is USB networking / `telnet` in the initramfs.
-- `pmbootstrap flasher --method=heimdall-bootimg` can do steps 2 for you once
-  pmbootstrap runs on a Linux host; it uses exactly these two commands.
+- 只重刷 `boot.img`，并留意三星那句 “kernel is not seandroid enforcing” 风格的警告（在已解锁设备上它们是正常的）。
+- 串口控制台：C7 没有外露的 UART 焊盘，所以实际可用的通道是 initramfs 里的 USB 网络 / `telnet`。
+- 只要 pmbootstrap 跑在 Linux 主机上，`pmbootstrap flasher --method=heimdall-bootimg` 就能替你完成第 2 步；它用的正是这两条命令。
 
-## 5. Going back to stock
+## 5. 恢复官方系统
 
-1. Download the stock firmware for **your exact model/region**
-   (e.g. `C7000ZCS3CRJ1`, China `CHC`) — never a different model's file.
-2. Odin: `BL` empty, `AP` = `AP_*.tar.md5`, `CP` = `CP_*.tar.md5`,
-   `CSC` = `CSC_*.tar.md5` (this wipes data — that is intended when reverting).
-   Do **not** use `HOME_CSC` if you want a clean restore.
-3. Wait for `PASS!`, the phone reboots into Android.
+1. 下载与**你确切的型号/地区**匹配的官方固件（例如 `C7000ZCS3CRJ1`，中国 `CHC`）—— 绝不要用其他型号的文件。
+2. Odin：`BL` 留空，`AP` = `AP_*.tar.md5`，`CP` = `CP_*.tar.md5`，`CSC` = `CSC_*.tar.md5`（这会清除数据 —— 回退时本就该如此）。如果你想要一次干净的恢复，**不要**使用 `HOME_CSC`。
+3. 等待出现 `PASS!`，手机会重启进入 Android。
 
-If Odin refuses, re-check the PIT file from step 1 and that you did not tick
-"re-partition".
+如果 Odin 拒绝刷写，请重新核对第 1 步得到的 PIT 文件，并确认你没有勾选 “re-partition”。
 
-## 6. Unbricking
+## 6. 救砖
 
-- Download mode is in the boot ROM/ABL and is essentially always reachable:
-  **Power + Home + Volume Down** (with the phone off, or hold all three from
-  a black screen). If the phone is in a reboot loop, hold the combo during
-  the loop.
-- Nothing in this repo touches the bootloader chain, so a bad flash can always
-  be recovered by flashing a stock `boot.img`/firmware.
-- Never flash `EFS` or `PERSIST`: losing them means losing IMEI and sensor
-  calibration with no software-only recovery.
+- 下载模式（Download mode）位于 boot ROM/ABL 之中，基本上总可以进入：**电源键 + Home 键 + 音量减**（手机关机时，或从黑屏状态同时按住这三个键）。如果手机处于反复重启的循环中，就在循环期间按住该组合键。
+- 本仓库里没有任何东西会碰 bootloader 链，所以即使刷坏，也总能通过刷入官方 `boot.img`/固件恢复。
+- 绝不要刷 `EFS` 或 `PERSIST`：丢失它们就意味着丢失 IMEI 和传感器校准，而且没有任何纯软件手段可以恢复。

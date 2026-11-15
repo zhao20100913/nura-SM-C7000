@@ -1,13 +1,12 @@
-# WiFi on the C7 (WCNSS / WCN3680)
+<!-- 英文原版：docs/07-wifi.en.md（本文件为中文翻译） -->
 
-The C7 uses the Qualcomm WCNSS "Pronto v3" block with an external
-WCN3680 companion (802.11ac). This document records how the current image
-supplies firmware, and how to tell what is wrong if `wlan0` does not appear.
+# C7 上的 WiFi（WCNSS / WCN3680）
 
-## Why WiFi needs no extra firmware package
+C7 使用的是高通 WCNSS “Pronto v3” 模块，配一颗外置的 WCN3680 配套芯片（802.11ac）。本文记录当前镜像是如何提供 firmware 的，以及在 `wlan0` 不出现时该如何判断问题出在哪。
 
-Samsung stores the radio firmware on the **apnhlos** partition (p35) as a
-FAT16 volume:
+## 为什么 WiFi 不需要额外的 firmware 包
+
+三星把射频 firmware 放在 **apnhlos** 分区（p35）上，以 FAT16 卷的形式存放：
 
 ```
 $ python3 tools/dump-fw.py ~/stock/NON-HLOS.bin     # developer helper
@@ -17,61 +16,40 @@ IMAGE/WCNSS.B01   37576
 ...
 ```
 
-`msm-firmware-loader` (OpenRC, runlevel `sysinit`, before udev) mounts every
-partition listed in `FW_PARTITIONS` read-only and symlinks `image/*` and
-`firmware/*` into `/run/msm-firmware-loader/target`, then points
-`firmware_class.path` at that directory. vfat's default `shortname=lower`
-turns `WCNSS.B00` into `wcnss.b00`, which is exactly what
-`drivers/remoteproc/qcom_wcnss.c` requests (`WCNSS_FIRMWARE_NAME = "wcnss.mdt"`).
+`msm-firmware-loader`（OpenRC，运行级别 `sysinit`，在 udev 之前）会把 `FW_PARTITIONS` 中列出的每个分区以只读方式挂载，并将 `image/*` 和 `firmware/*` 软链接到 `/run/msm-firmware-loader/target`，然后让 `firmware_class.path` 指向该目录。vfat 默认的 `shortname=lower` 会把 `WCNSS.B00` 变成 `wcnss.b00`，而这恰好就是 `drivers/remoteproc/qcom_wcnss.c` 所请求的名字（`WCNSS_FIRMWARE_NAME = "wcnss.mdt"`）。
 
-The one blob that is **not** on a partition is the NV calibration file.
-Samsung keeps it inside `system.img`:
+唯一**不**在分区上的 blob 是 NV 校准文件。三星把它放在 `system.img` 里面：
 
 ```
 /vendor/firmware/wlan/prima/WCNSS_qcom_wlan_nv.bin   29816 bytes
 ```
 
-`wcn36xx` hard-codes `WLAN_NV_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"`
-(`wcn36xx.h:33`) and refuses to start without it, so
-`device-samsung-c7lte` ships that file and installs it to
-`/usr/lib/firmware/wlan/prima/`. The kernel searches `firmware_class.path`
-first and `/lib/firmware` afterwards, so both sources are usable.
+`wcn36xx` 硬编码了 `WLAN_NV_FILE "wlan/prima/WCNSS_qcom_wlan_nv.bin"`（`wcn36xx.h:33`），没有这个文件就拒绝启动，因此 `device-samsung-c7lte` 打包了该文件，并把它安装到 `/usr/lib/firmware/wlan/prima/`。内核先搜索 `firmware_class.path`，之后才搜索 `/lib/firmware`，所以两种来源都能用。
 
-## Power rails
+## 电源轨
 
-`qcom_wcnss_iris` requests all four iris rails unconditionally
-(`drivers/remoteproc/qcom_wcnss_iris.c`, `wcn3680_data`):
+`qcom_wcnss_iris` 会无条件请求全部四条 iris 电源轨（`drivers/remoteproc/qcom_wcnss_iris.c`，`wcn3680_data`）：
 
-| rail     | voltage        | C7 rail        |
+| 电源轨 | 电压 | C7 上的电源轨 |
 |----------|----------------|----------------|
 | `vddxo`  | 1.8 V          | `pm8953_l7`    |
 | `vddrfa` | 1.3 V          | `pm8953_l19`   |
 | `vddpa`  | 3.3 V          | `pm8953_l9`    |
 | `vdddig` | 1.8 V          | `pm8953_l5`    |
 
-The remoteproc node itself (`pronto-v3-pil`) additionally takes `vddpx`
-(1.8 V, `pm8953_l5`); its core rails come from the RPM power domains
-(`rpmpd` cx/mx) already described in `msm8953.dtsi`.
+remoteproc 节点本身（`pronto-v3-pil`）还额外需要 `vddpx`（1.8 V，`pm8953_l5`）；它的核心电源轨来自 `msm8953.dtsi` 中已经描述过的 RPM 电源域（`rpmpd` 的 cx/mx）。
 
-The downstream tree only ever inits `l9` at 3.0 V and `l19` at 1.2 V, so the
-device tree gives both a range (`3.0-3.3 V`, `1.2-1.35 V`) and lets the
-driver raise them, instead of hard-coding a single value.
+下游内核树里只把 `l9` 初始化为 3.0 V、把 `l19` 初始化为 1.2 V，因此设备树给这两路都写了一个范围（`3.0-3.3 V`、`1.2-1.35 V`），让驱动去抬高它们，而不是硬编码成单一电压。
 
-## Booting the remoteproc
+## 启动 remoteproc
 
-`qcom_wcnss` never sets `rproc->auto_boot`, and nothing in the postmarketOS
-rootfs writes to `/sys/class/remoteproc/`, so the WCNSS stays offline forever
-unless userspace starts it. `device-samsung-c7lte` therefore ships
-`/etc/local.d/10-wcnss.start`, which OpenRC runs from its `local` service:
+`qcom_wcnss` 从不设置 `rproc->auto_boot`，而 postmarketOS rootfs 里也没有任何东西会去写 `/sys/class/remoteproc/`，所以除非用户空间主动启动它，WCNSS 会一直离线。为此 `device-samsung-c7lte` 打包了 `/etc/local.d/10-wcnss.start`，由 OpenRC 的 `local` 服务执行：
 
-* it waits up to 15 s for `msm-firmware-loader` to repoint
-  `firmware_class.path` (the loader runs late in `sysinit`),
-* then writes `start` to the state file of every `/sys/class/remoteproc/*`
-  whose name matches `*wcnss*`,
-* and finally modprobes `wcn36xx` (the rpmsg channel normally triggers udev
-  on its own, this is only a fallback).
+* 最多等待 15 秒，等 `msm-firmware-loader` 重新指向 `firmware_class.path`（该 loader 在 `sysinit` 中执行得较晚），
+* 然后向每个名字匹配 `*wcnss*` 的 `/sys/class/remoteproc/*` 的 state 文件写入 `start`，
+* 最后 modprobe `wcn36xx`（rpmsg 通道通常自己会触发 udev，这一步只是兜底）。
 
-Booting the target by hand, e.g. before the service ever ran:
+手动启动该目标，例如在服务还从未运行过之前：
 
 ```sh
 for rp in /sys/class/remoteproc/remoteproc*; do
@@ -81,9 +59,9 @@ echo start | sudo tee /sys/class/remoteproc/remoteproc0/state
 sudo modprobe wcn36xx
 ```
 
-## Checking the result
+## 检查结果
 
-Once the phone is up:
+手机起来之后：
 
 ```sh
 sudo dmesg | grep -iE "wcnss|wlan|rpmsg|smd|iris"
@@ -92,7 +70,7 @@ rfkill list
 iw dev
 ```
 
-Expected `dmesg` fragments on success:
+成功时 `dmesg` 中应有的片段：
 
 ```
 remoteproc remoteproc0: wcnss is available
@@ -100,25 +78,16 @@ wcn36xx: ... firmware version ...
 wcn36xx: mac 0x...
 ```
 
-If probe stops early, the most likely messages are:
+如果探测提前中止，最可能出现的消息是：
 
-* `qcom_wcnss_iris: probe failed with error -ENODEV` — a rail is missing.
-* `Direct firmware load for wcnss.mdt failed` — `msm-firmware-loader` did not
-  mount `apnhlos` (check `mount | grep msm-firmware-loader`).
-* `Direct firmware load for wlan/prima/WCNSS_qcom_wlan_nv.bin failed` — the
-  device package did not install the NV blob.
-* `wcn36xx: Failed to push NV to chip` — the chip booted but rejected the NV;
-  then check that `WCNSS_qcom_wlan_nv.bin` is the one extracted from *this*
-  phone's `system.img`, not from another device.
+* `qcom_wcnss_iris: probe failed with error -ENODEV` —— 某条电源轨缺失。
+* `Direct firmware load for wcnss.mdt failed` —— `msm-firmware-loader` 没有挂载 `apnhlos`（检查 `mount | grep msm-firmware-loader`）。
+* `Direct firmware load for wlan/prima/WCNSS_qcom_wlan_nv.bin failed` —— 设备包没有安装 NV blob。
+* `wcn36xx: Failed to push NV to chip` —— 芯片启动了但拒绝了这份 NV；这时要确认 `WCNSS_qcom_wlan_nv.bin` 是从*这台*手机的 `system.img` 中提取的，而不是来自别的设备。
 
-## Known unfinished bits
+## 已知未完成项
 
-* Bluetooth (`wcnss_bt`) is not wired to a UART yet.
-* The remoteproc is started from an OpenRC `local.d` script rather than a
-  proper service; upstreaming it as a `qcom-wcnss-pil` init script would be
-  the clean fix.
-* The `qcom,smsm` "can't parse mboxes" warning is inherited from
-  `msm8953.dtsi`; it has not been observed to block WiFi, but if the wcn36xx
-  probe fails late, override `&smsm { mboxes = ...; }` in the board DTS next.
-* Regulatory domain comes from `regulatory.db` in the rootfs; no country is
-  forced.
+* 蓝牙（`wcnss_bt`）还没有接到 UART 上。
+* remoteproc 目前是由 OpenRC 的 `local.d` 脚本启动的，而不是一个正式的服务；把它上游化为 `qcom-wcnss-pil` init 脚本才是干净的解决方式。
+* `qcom,smsm` 的 “can't parse mboxes” 警告继承自 `msm8953.dtsi`；目前没有观察到它会阻断 WiFi，但如果 wcn36xx 的探测在较晚阶段失败，下一步就在板级 DTS 里覆盖 `&smsm { mboxes = ...; }`。
+* 管制域（regulatory domain）来自 rootfs 中的 `regulatory.db`，没有强制指定任何国家。

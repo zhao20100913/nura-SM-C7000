@@ -1,89 +1,79 @@
-# 04 — Roadmap
+<!-- 英文原版：docs/04-roadmap.en.md（本文件为中文翻译） -->
 
-Each milestone has a concrete acceptance test. The order is chosen so that
-every step is verifiable without a working display.
+# 04 — 路线图
 
-## M1 — Boot to the initramfs
+每个里程碑都有一个具体的验收测试。顺序是刻意这样定的：让每一步都能在没有可用显示的情况下得到验证。
 
-- [ ] Flash the CI artifacts (`boot.img` + rootfs) with Heimdall.
-- [ ] Get the initramfs shell over USB networking: `telnet 172.16.42.2`.
+## M1 —— 启动到 initramfs
 
-**Pass:** `uname -a` inside the initramfs reports the 7.1.3 mainline kernel;
-`cat /proc/device-tree/model` says `Samsung Galaxy C7 (SM-C7000)`.
+- [ ] 用 Heimdall 刷入 CI 产物（`boot.img` + rootfs）。
+- [ ] 通过 USB 网络拿到 initramfs shell：`telnet 172.16.42.2`。
 
-If it fails: re-check the boot image offsets, the appended DTB and whether the
-panel stays dark because of missing display init (that is expected, but it must
-not stop the kernel from booting).
+**通过标准：** initramfs 里的 `uname -a` 报告 7.1.3 主线内核；`cat /proc/device-tree/model` 输出 `Samsung Galaxy C7 (SM-C7000)`。
 
-## M2 — Root filesystem on eMMC
+如果失败：重新检查 boot 镜像的偏移、附加的 DTB，以及面板是否因为缺少显示初始化而一直黑屏（这是预期现象，但它不应妨碍内核启动）。
 
-- [ ] `sdhc_1` probes the eMMC (`dmesg | grep mmc0`), rootfs mounts.
-- [ ] SSH into the phone over USB networking.
-- [ ] Grow the rootfs to fill `USERDATA` (`resize2fs` from initramfs or a
-      first-boot service).
+## M2 —— 根文件系统放到 eMMC 上
 
-**Pass:** `pmos`-style login over `ssh user@172.16.42.2`, `df -h /` shows the
-full partition size.
+- [ ] `sdhc_1` 探测到 eMMC（`dmesg | grep mmc0`），rootfs 挂载成功。
+- [ ] 通过 USB 网络 SSH 登录手机。
+- [ ] 扩展 rootfs 使其填满 `USERDATA`（在 initramfs 里执行 `resize2fs`，或加一个首次启动服务）。
 
-## M3 — Display (the big one)
+**通过标准：** 以 `pmos` 风格通过 `ssh user@172.16.42.2` 登录，`df -h /` 显示完整的分区大小。
 
-No mainline driver exists for the **Samsung S6E3FA3** panel of this device.
+## M3 —— 显示（重头戏）
 
-- [ ] Port the downstream init sequence
-      (`drivers/video/msm/mdss/samsung/S6E3FA3_AMS568HN31/dsi_panel_S6E3FA3_AMS568HN31_fhd_octa_cmd.dtsi`)
-      into a DRM panel driver. The closest starting point in mainline is
-      `drivers/gpu/drm/panel/panel-samsung-s6e3fa7.c` (same family, different
-      init sequence and timings).
-- [ ] Describe `mdss` / `mdss_dsi0` / `dsi_phy` in the DTS and hook the panel:
-      TE `gpio24`, reset `gpio50`, enable `gpio94`, supply rails via PM8953.
-- [ ] Backlight: this panel is self-emitting; brightness is a DSI command
-      (`0x51`), not a PWM/GPIO backlight.
+> **状态：已在本仓库实现**（`panel-samsung-s6e3fa3.c`，提交 `aef30f0`、`0fb0192`），
+> 本地编译通过，**尚未真机验证**。
 
-**Pass:** Tux/console on screen, `modetest -M msm` lists 1080×1920.
+本设备的 **Samsung S6E3FA3** 面板原本没有对应的主线驱动。
 
-**Effort:** 20–40 h for a first working driver, plus upstream review.
+- [ ] 把下游的初始化序列（`drivers/video/msm/mdss/samsung/S6E3FA3_AMS568HN31/dsi_panel_S6E3FA3_AMS568HN31_fhd_octa_cmd.dtsi`）移植成 DRM 面板驱动。主线里最接近的起点是 `drivers/gpu/drm/panel/panel-samsung-s6e3fa7.c`（同一家族，但初始化序列和时序不同）。
+- [ ] 在 DTS 中描述 `mdss` / `mdss_dsi0` / `dsi_phy` 并接上面板：TE `gpio24`、reset `gpio50`、enable `gpio94`，供电轨由 PM8953 提供。
+- [ ] 背光：这块面板是自发光的；亮度通过 DSI 命令（`0x51`）控制，而不是 PWM/GPIO 背光。
 
-## M4 — Touch
+**通过标准：** 屏幕上出现 Tux/控制台，`modetest -M msm` 列出 1080×1920。
 
-- [ ] Melfas **MMS449** at `0x48` on `i2c_7`: IRQ `gpio59`, `vdd_en` `gpio95`.
-- [ ] Mainline has `drivers/input/touchscreen/mms114.c` (MMS114/MMS136/MMS152).
-      Check whether MMS449 is register-compatible; otherwise port the vendor
-      driver (`melfas/mms_ts`) or write a minimal input driver.
-- [ ] Add the `i2c_7` node + pinctrl to the DTS (the bus is already enabled in
-      mainline, so this is small).
+**工作量：** 首个可用驱动 20–40 小时，外加上游评审。
 
-**Pass:** `evtest` reports multitouch events, `libinput debug-events` sees them.
+## M4 —— 触摸
 
-**Effort:** 6–15 h.
+> **状态：已在本仓库实现**（`melfas-mms449.c`），本地编译通过，**尚未真机验证**。
 
-## M5 — WiFi
+- [ ] Melfas **MMS449**，位于 `i2c_7` 上的地址 `0x48`：IRQ `gpio59`，`vdd_en` `gpio95`。
+- [ ] 主线已有 `drivers/input/touchscreen/mms114.c`（支持 MMS114/MMS136/MMS152）。请确认 MMS449 是否寄存器兼容；若不兼容，则移植厂商驱动（`melfas/mms_ts`），或写一个最小化的 input 驱动。
+- [ ] 往 DTS 里加 `i2c_7` 节点 + pinctrl（该总线在主线中已经启用，所以这部分工作量很小）。
 
-- [ ] Enable `wcnss` (WCNSS remoteproc / `wcn36xx`) with the Samsung firmware
-      (`wcnss.mdt`, `*.b0*` from the stock `system`/`vendor` partition, loaded by
-      `msm-firmware-loader`).
-- [ ] Provide the calibration data (`/persist/wlan_mac.bin`, `WCNSS_qcom_wlan_nv.bin`).
-- [ ] Add the `wcnss` reserved-memory carve-out and the `&wcnss` node.
+**通过标准：** `evtest` 能报告多点触控事件，`libinput debug-events` 也能看到它们。
 
-**Pass:** `ip link` shows `wlan0`, `iw dev wlan0 scan` returns networks.
+**工作量：** 6–15 小时。
 
-**Effort:** 8–20 h (firmware/calibration fiddling).
+## M5 —— WiFi
 
-## M6 — The rest
+> **状态：DTS 电源轨、NV 固件与启动脚本已就位**（`/etc/local.d/10-wcnss.start`），
+> **尚未真机验证**。
 
-| Block | Driver situation | Notes |
+- [ ] 启用 `wcnss`（WCNSS remoteproc / `wcn36xx`）并配上三星固件（`wcnss.mdt`、来自官方 `system`/`vendor` 分区的 `*.b0*`，由 `msm-firmware-loader` 加载）。
+- [ ] 提供校准数据（`/persist/wlan_mac.bin`、`WCNSS_qcom_wlan_nv.bin`）。
+- [ ] 加上 `wcnss` 的 reserved-memory 预留区以及 `&wcnss` 节点。
+
+**通过标准：** `ip link` 显示 `wlan0`，`iw dev wlan0 scan` 能扫到网络。
+
+**工作量：** 8–20 小时（主要耗在固件/校准的反复尝试上）。
+
+## M6 —— 其余部分
+
+| 模块 | 驱动现状 | 备注 |
 | --- | --- | --- |
-| Modem | needs Samsung `mba`/`modem` firmware + `q6voiced` | hardest, optional |
-| Charger/fuel gauge | Silicon Mitus **SM5705** + `dlg,da9155` | no mainline driver |
-| Audio | **RT5659** codec + PM8953 codec | ASoC machine driver needed |
-| Sensors | BHY, TMD3700, YAS537 | IIO drivers exist for TMD3700/YAS |
-| Camera | downstream only | very large effort, out of scope |
-| NFC | PN547 on `i2c_3` | `nxp-nci` exists, needs DTS |
+| 调制解调器 | 需要三星 `mba`/`modem` 固件 + `q6voiced` | 最难，可选 |
+| 充电/电量计 | Silicon Mitus **SM5705** + `dlg,da9155` | 无主线驱动 |
+| 音频 | **RT5659** codec + PM8953 codec | 需要 ASoC machine 驱动 |
+| 传感器 | BHY、TMD3700、YAS537 | TMD3700/YAS 已有 IIO 驱动 |
+| 摄像头 | 仅下游支持 | 工作量极大，超出范围 |
+| NFC | `i2c_3` 上的 PN547 | 已有 `nxp-nci`，还需要 DTS |
 
-## Upstreaming
+## 上游化
 
-1. DTS → `msm8953-mainline/linux` (they already carry `msm8953-xiaomi-vince.dts`
-   and friends). The patch here is deliberately generated against that tree.
-2. Panel driver → DRM panel maintainers (same path as `panel-samsung-s6e3fa7.c`).
-3. Device package → pmaports `device/testing/device-samsung-c7lte` once M2 is
-   stable; the kernel package can then be retired in favour of the generic
-   `linux-postmarketos-qcom-msm8953` once the DTS lands upstream.
+1. DTS → `msm8953-mainline/linux`（他们已经在维护 `msm8953-xiaomi-vince.dts` 及同类文件）。这里的补丁是特意针对那棵树生成的。
+2. 面板驱动 → DRM panel 维护者（与 `panel-samsung-s6e3fa7.c` 同一路径）。
+3. 设备包 → 待 M2 稳定后进入 pmaports 的 `device/testing/device-samsung-c7lte`；等 DTS 落地上游之后，内核包就可以退役，改用通用的 `linux-postmarketos-qcom-msm8953`。
