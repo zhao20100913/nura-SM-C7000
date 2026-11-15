@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..10cbbdb
+index 0000000..a60cdf8
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,345 @@
+@@ -0,0 +1,361 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -348,4 +348,20 @@ index 0000000..10cbbdb
 +&mdss_dsi0_out {
 +	remote-endpoint = <&panel_in>;
 +	data-lanes = <0 1 2 3>;
++};
++
++/*
++ * WiFi: Qualcomm WCNSS (Pronto v3) + an external 802.11ac companion.  The
++ * C7 is a Snapdragon 625 device with 11ac, so the iris is a WCN3680.
++ * The radio firmware itself comes from the phone's apnhlos partition
++ * (msm-firmware-loader mounts it); no regulator is needed here because the
++ * pronto-v3 binding uses the RPM power domains (cx/mx) and the iris rails
++ * are handled by the WCNSS firmware handshake.
++ */
++&wcnss {
++	status = "okay";
++};
++
++&wcnss_iris {
++	compatible = "qcom,wcn3680";
 +};
