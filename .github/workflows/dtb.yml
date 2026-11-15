@@ -47,10 +47,13 @@ jobs:
             -o /tmp/linux.tgz \
             "https://codeload.github.com/msm8953-mainline/linux/tar.gz/refs/tags/${{ inputs.kernel_ref }}"
           mkdir -p k
-          tar -xzf /tmp/linux.tgz -C k --strip-components=1 \
-            --wildcards '*/arch/arm64/boot/dts/qcom/*' '*/include/dt-bindings/*' \
-            '*/arch/arm64/boot/dts/Makefile' || true
+          # Extract by explicit prefix: tar --wildcards does not reliably
+          # recurse through directories like dt-bindings/input/.
+          tar -tzf /tmp/linux.tgz | grep -E '^[^/]+/(include/dt-bindings|arch/arm64/boot/dts/qcom)/' > /tmp/files.txt
+          test "$(wc -l < /tmp/files.txt)" -gt 100
+          tar -xzf /tmp/linux.tgz -C k --strip-components=1 -T /tmp/files.txt
           ls k/arch/arm64/boot/dts/qcom/msm8953.dtsi
+          ls k/include/dt-bindings/input/linux-event-codes.h
 
       - name: Compile the C7 device tree
         run: |
