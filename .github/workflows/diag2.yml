@@ -1,0 +1,95 @@
+name: Trace init inside chroot (both builds)
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_a:
+        description: "artifact id of the WORKING build"
+        required: true
+      artifact_b:
+        description: "artifact id of the FAILING build"
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Unpack both initramfs trees
+        env:
+          GH_TOKEN: ${{ github.token }}
+          A: ${{ inputs.artifact_a }}
+          B: ${{ inputs.artifact_b }}
+        run: |
+          set -eu
+          python3 -m pip install --quiet zstandard
+          for pair in "a:$A" "b:$B"; do
+            tag=${pair%%:*}; id=${pair#*:}
+            gh api "/repos/${{ github.repository }}/actions/artifacts/$id/zip" > $tag.zip
+            mkdir -p $tag; unzip -o -q $tag.zip -d $tag
+            TAG=$tag python3 - <<'PY'
+          import io, os, pathlib, struct, zstandard
+          tag = os.environ["TAG"]
+          data = next(pathlib.Path(tag).rglob("boot.img")).read_bytes()
+          u32 = lambda o: struct.unpack_from("<I", data, o)[0]
+          page, ksz, rsz = u32(36), u32(8), u32(16)
+          align = lambda n: (n + page - 1) // page * page
+          rd = data[align(1632) + align(ksz):][:rsz]
+          if rd[:4].hex() == "28b52ffd":
+              rd = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(rd)).read()
+          root = pathlib.Path(tag + "-root"); pos = 0
+          while pos + 110 <= len(rd):
+              hdr = rd[pos:pos+110]
+              if hdr[:6] != b"070701": break
+              f = [int(hdr[6+8*i:14+8*i], 16) for i in range(13)]
+              name = rd[pos+110:pos+110+f[11]-1].decode()
+              body = (pos + 110 + f[11] + 3) & ~3
+              if name == "TRAILER!!!": break
+              p = root / name.lstrip("./"); mode = f[1]
+              if mode & 0o170000 == 0o040000:
+                  p.mkdir(parents=True, exist_ok=True)
+              elif mode & 0o170000 == 0o120000:
+                  p.parent.mkdir(parents=True, exist_ok=True)
+                  if p.is_symlink() or p.exists(): p.unlink()
+                  p.symlink_to(rd[body:body+f[6]].decode())
+              else:
+                  p.parent.mkdir(parents=True, exist_ok=True)
+                  p.write_bytes(rd[body:body+f[6]])
+                  p.chmod(0o755 if mode & 0o111 else 0o644)
+              pos = (body + f[6] + 3) & ~3
+          PY
+          done
+
+      - name: Get qemu
+        run: |
+          set -eu
+          sudo apt-get install -y -qq qemu-user-static >/dev/null 2>&1 || \
+            (sudo apt-get update -qq && sudo apt-get install -y -qq qemu-user-static)
+
+      - name: Run init in both trees
+        run: |
+          set -eu
+          run_one() {
+            tag=$1
+            cd $tag-root
+            sudo rm -f /pmOS_init.log
+            sudo cp /usr/bin/qemu-aarch64-static .
+            sudo mkdir -p proc sys dev dev/pts
+            sudo mount --bind /proc proc || true
+            sudo mount --bind /sys sys || true
+            sudo mount --bind /dev dev || true
+            set +e
+            sudo timeout -s KILL 20 chroot . /bin/busybox ash -x /init > /tmp/$tag.out 2>&1
+            rc=$?
+            set -e
+            echo "===== $tag: chroot exit=$rc ====="
+            echo "----- stdout/stderr -----"; head -40 /tmp/$tag.out
+            echo "----- /pmOS_init.log (tail) -----"; sudo tail -60 pmOS_init.log 2>/dev/null || echo "(no log)"
+            cd ..
+          }
+          run_one a
+          run_one b
