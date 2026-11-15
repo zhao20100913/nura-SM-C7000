@@ -2,24 +2,25 @@
 /*
  * Driver for the Samsung S6E3FA3 AMS568HN31 panel (Galaxy C7 SM-C7000).
  *
- * Initialisation sequence converted from the downstream Samsung driver
- * drivers/video/msm/mdss/samsung/S6E3FA3_AMS568HN31.
+ * The initialisation sequence was generated with
+ * linux-mdss-dsi-panel-driver-generator from the downstream Samsung device
+ * tree (drivers/video/msm/mdss/samsung/S6E3FA3_AMS568HN31) and then extended
+ * with the board level power sequencing that the downstream
+ * mdss_dsi_panel.c does from its platform data:
  *
- * Power-up order follows the downstream mdss_dsi_panel.c code:
- *
- *   1. LCD_LDO_EN (enable-gpios, gpio94) high, the load switch that feeds
- *      the panel from pm8953_l17,
- *   2. reset pulse 20/20/20 ms (the downstream "reset-sequence = <1 20>,
- *      <0 20>, <1 20>"),
- *   3. DCS init sequence from dsi_panel_S6E3FA3_AMS568HN31_fhd_octa_cmd.dtsi,
- *   4. DCS display on (0x29), which the downstream display_on_tx_cmds_revA
+ *   1. vddio (pm8953_l6, 1.8 V) and vdd (pm8953_l17, 2.85 V) on,
+ *   2. LCD_LDO_EN (enable-gpios, gpio94) high, the load switch that feeds the
+ *      panel from pm8953_l17,
+ *   3. reset pulse "reset-sequence = <1 20>, <0 20>, <1 20>",
+ *   4. DCS init sequence from dsi_panel_S6E3FA3_AMS568HN31_fhd_octa_cmd.dtsi,
+ *   5. DCS display on (0x29), which the downstream display_on_tx_cmds_revA
  *      sends on the first frame update,
- *   5. DCS brightness (0x51) so that the panel is already visible before
+ *   6. DCS brightness (0x51) so that the panel is already visible before
  *      userspace restores the saved backlight level.
  *
  * The panel is a command mode (dsi_cmd_mode) panel: the DSI host pushes
  * complete frames into the panel's frame memory and the panel refreshes
- * itself, so no video-mode timing has to match.
+ * itself, so no video mode timing has to match.
  */
 
 #include <linux/backlight.h>
@@ -34,8 +35,9 @@
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_panel.h>
+#include <drm/drm_probe_helper.h>
 
-#define S6E3FA3_DEFAULT_BRIGHTNESS	300
+#define S6E3FA3_DEFAULT_BRIGHTNESS	365
 #define S6E3FA3_MAX_BRIGHTNESS		365
 
 struct s6e3fa3_panel {
@@ -56,7 +58,7 @@ static inline struct s6e3fa3_panel *to_s6e3fa3_panel(struct drm_panel *panel)
 /*
  * Downstream reset-sequence = <1 20>, <0 20>, <1 20>, i.e. the line is
  * driven high, low, high again, each step 20 ms.  reset-gpios is
- * GPIO_ACTIVE_LOW, so value 0 drives the line high.
+ * GPIO_ACTIVE_LOW, so a logical 1 drives the line low.
  */
 static void s6e3fa3_panel_reset(struct s6e3fa3_panel *ctx)
 {
@@ -65,7 +67,7 @@ static void s6e3fa3_panel_reset(struct s6e3fa3_panel *ctx)
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	msleep(20);
 	gpiod_set_value_cansleep(ctx->reset_gpio, 0);
-	usleep_range(1000, 2000);
+	msleep(20);
 }
 
 static int s6e3fa3_panel_on(struct s6e3fa3_panel *ctx)
@@ -92,15 +94,21 @@ static int s6e3fa3_panel_on(struct s6e3fa3_panel *ctx)
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xb6, 0x7f);
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xf0, 0xa5, 0xa5);
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xf0, 0x5a, 0x5a);
-	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xca, 0x01, 0x00, 0x01, 0x00, 0x01, 0x00, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00);
+	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xca,
+					 0x01, 0x00, 0x01, 0x00, 0x01, 0x00,
+					 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+					 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+					 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+					 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
+					 0x00, 0x00, 0x00, 0x00, 0x00);
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xb2, 0x00, 0xc2);
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xb6, 0xbc, 0x0a);
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xf4, 0x7b, 0x1e);
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xf7, 0x03);
 	mipi_dsi_generic_write_seq_multi(&dsi_ctx, 0xf0, 0xa5, 0xa5);
-	mipi_dsi_msleep(&dsi_ctx, 80);
-	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x2c, 0x00);
-	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x3c, 0x00);
+	mipi_dsi_msleep(&dsi_ctx, 120);
+	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DCS_WRITE_MEMORY_START);
+	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, MIPI_DCS_WRITE_MEMORY_CONTINUE);
 	mipi_dsi_dcs_set_display_on_multi(&dsi_ctx);
 	mipi_dsi_msleep(&dsi_ctx, 50);
 
@@ -111,13 +119,13 @@ static int s6e3fa3_panel_on(struct s6e3fa3_panel *ctx)
 	return dsi_ctx.accum_err;
 }
 
-static int s6e3fa3_panel_off(struct mipi_dsi_device *dsi)
+static int s6e3fa3_panel_off(struct s6e3fa3_panel *ctx)
 {
-	struct mipi_dsi_multi_context dsi_ctx = { .dsi = dsi };
+	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 
-	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x28, 0x00);
-	mipi_dsi_msleep(&dsi_ctx, 50);
-	mipi_dsi_dcs_write_seq_multi(&dsi_ctx, 0x10, 0x00);
+	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
+	mipi_dsi_usleep_range(&dsi_ctx, 10000, 11000);
+	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
 	mipi_dsi_msleep(&dsi_ctx, 150);
 
 	return dsi_ctx.accum_err;
@@ -131,14 +139,18 @@ static int s6e3fa3_panel_prepare(struct drm_panel *panel)
 	ret = regulator_enable(ctx->vddio);
 	if (ret)
 		return ret;
+
 	ret = regulator_enable(ctx->vdd);
 	if (ret)
-		goto err_vdd;
+		goto err_vddio;
+
 	usleep_range(10000, 11000);
 
-	/* LCD_LDO_EN: the load switch that connects vdd (pm8953_l17) to the
-	 * panel. Without it the panel stays unpowered no matter what the DSI
-	 * link does. */
+	/*
+	 * LCD_LDO_EN: the load switch that connects vdd (pm8953_l17) to the
+	 * panel.  Without it the panel stays unpowered no matter what the DSI
+	 * link does.
+	 */
 	if (ctx->enable_gpio)
 		gpiod_set_value_cansleep(ctx->enable_gpio, 1);
 	usleep_range(10000, 11000);
@@ -146,17 +158,19 @@ static int s6e3fa3_panel_prepare(struct drm_panel *panel)
 	s6e3fa3_panel_reset(ctx);
 
 	ret = s6e3fa3_panel_on(ctx);
-	if (ret < 0)
-		goto err_reset;
+	if (ret < 0) {
+		dev_err(&ctx->dsi->dev, "Failed to initialize panel: %d\n", ret);
+		gpiod_set_value_cansleep(ctx->reset_gpio, 1);
+		goto err_enable;
+	}
 
 	return 0;
 
-err_reset:
+err_enable:
 	if (ctx->enable_gpio)
 		gpiod_set_value_cansleep(ctx->enable_gpio, 0);
-	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	regulator_disable(ctx->vdd);
-err_vdd:
+err_vddio:
 	regulator_disable(ctx->vddio);
 
 	return ret;
@@ -166,7 +180,8 @@ static int s6e3fa3_panel_unprepare(struct drm_panel *panel)
 {
 	struct s6e3fa3_panel *ctx = to_s6e3fa3_panel(panel);
 
-	s6e3fa3_panel_off(ctx->dsi);
+	s6e3fa3_panel_off(ctx);
+
 	gpiod_set_value_cansleep(ctx->reset_gpio, 1);
 	if (ctx->enable_gpio)
 		gpiod_set_value_cansleep(ctx->enable_gpio, 0);
@@ -182,44 +197,31 @@ static int s6e3fa3_panel_disable(struct drm_panel *panel)
 	struct mipi_dsi_multi_context dsi_ctx = { .dsi = ctx->dsi };
 
 	mipi_dsi_dcs_set_display_off_multi(&dsi_ctx);
-	mipi_dsi_msleep(&dsi_ctx, 50);
-	mipi_dsi_dcs_enter_sleep_mode_multi(&dsi_ctx);
-	mipi_dsi_msleep(&dsi_ctx, 120);
+	mipi_dsi_usleep_range(&dsi_ctx, 10000, 11000);
 
 	return dsi_ctx.accum_err;
 }
 
 static const struct drm_display_mode s6e3fa3_panel_mode = {
-	.clock = (1080 + 160 + 36 + 12) * (1920 + 7 + 7 + 2) * 60 / 1000,
+	.clock = (1080 + 160 + 12 + 36) * (1920 + 7 + 2 + 7) * 60 / 1000,
 	.hdisplay = 1080,
 	.hsync_start = 1080 + 160,
 	.hsync_end = 1080 + 160 + 12,
-	.htotal = 1080 + 160 + 36 + 12,
+	.htotal = 1080 + 160 + 12 + 36,
 	.vdisplay = 1920,
 	.vsync_start = 1920 + 7,
 	.vsync_end = 1920 + 7 + 2,
-	.vtotal = 1920 + 7 + 7 + 2,
+	.vtotal = 1920 + 7 + 2 + 7,
 	.width_mm = 69,
 	.height_mm = 122,
+	.type = DRM_MODE_TYPE_DRIVER,
 };
 
 static int s6e3fa3_panel_get_modes(struct drm_panel *panel,
 				   struct drm_connector *connector)
 {
-	struct drm_display_mode *mode;
-
-	mode = drm_mode_duplicate(connector->dev, &s6e3fa3_panel_mode);
-	if (!mode)
-		return -ENOMEM;
-
-	drm_mode_set_name(mode);
-
-	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
-	connector->display_info.width_mm = mode->width_mm;
-	connector->display_info.height_mm = mode->height_mm;
-	drm_mode_probed_add(connector, mode);
-
-	return 1;
+	return drm_connector_helper_get_modes_fixed(connector,
+						    &s6e3fa3_panel_mode);
 }
 
 static const struct drm_panel_funcs s6e3fa3_panel_funcs = {
@@ -235,13 +237,14 @@ static int s6e3fa3_panel_bl_update_status(struct backlight_device *bl)
 	u16 brightness = backlight_get_brightness(bl);
 	int ret;
 
+	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+
 	ret = mipi_dsi_dcs_set_display_brightness_large(dsi, brightness);
 	if (ret < 0)
 		return ret;
 
-	/* The panel ignores brightness writes while it is in sleep mode, and
-	 * userspace likes to restore the saved level while the display is
-	 * still off. Re-send the value the next time we are in display on. */
+	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
+
 	return 0;
 }
 
@@ -251,9 +254,13 @@ static int s6e3fa3_panel_bl_get_brightness(struct backlight_device *bl)
 	u16 brightness;
 	int ret;
 
+	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
+
 	ret = mipi_dsi_dcs_get_display_brightness_large(dsi, &brightness);
 	if (ret < 0)
 		return ret;
+
+	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 
 	return brightness;
 }
@@ -315,8 +322,10 @@ static int s6e3fa3_panel_probe(struct mipi_dsi_device *dsi)
 
 	dsi->lanes = 4;
 	dsi->format = MIPI_DSI_FMT_RGB888;
-	/* Command mode: no MIPI_DSI_MODE_VIDEO, the MDP5 command encoder
-	 * pushes whole frames and the panel refreshes from its own GRAM. */
+	/*
+	 * Command mode: no MIPI_DSI_MODE_VIDEO, the MDP5 command encoder
+	 * pushes whole frames and the panel refreshes from its own GRAM.
+	 */
 	dsi->mode_flags = MIPI_DSI_CLOCK_NON_CONTINUOUS | MIPI_DSI_MODE_LPM;
 
 	ctx->panel.prepare_prev_first = true;
@@ -329,7 +338,7 @@ static int s6e3fa3_panel_probe(struct mipi_dsi_device *dsi)
 
 	drm_panel_add(&ctx->panel);
 
-	ret = mipi_dsi_attach(dsi);
+	ret = devm_mipi_dsi_attach(dev, dsi);
 	if (ret < 0) {
 		dev_err(dev, "Failed to attach to DSI host: %d\n", ret);
 		drm_panel_remove(&ctx->panel);
@@ -342,11 +351,6 @@ static int s6e3fa3_panel_probe(struct mipi_dsi_device *dsi)
 static void s6e3fa3_panel_remove(struct mipi_dsi_device *dsi)
 {
 	struct s6e3fa3_panel *ctx = mipi_dsi_get_drvdata(dsi);
-	int ret;
-
-	ret = mipi_dsi_detach(dsi);
-	if (ret < 0)
-		dev_err(&dsi->dev, "Failed to detach from DSI host: %d\n", ret);
 
 	drm_panel_remove(&ctx->panel);
 }
