@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..9b3d557
+index 0000000..7bd1363
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,306 @@
+@@ -0,0 +1,329 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -303,10 +303,33 @@ index 0000000..9b3d557
 +/*
 + * Display: Samsung S6E3FA3 AMS568HN31, 1080x1920 command mode AMOLED.
 + *
-+ * TEMPORARILY DISABLED: the whitelisted-pinctrl build hung before USB came
-+ * up.  This variant keeps the pin whitelist but leaves mdss/DSI/panel off,
-+ * to tell apart "the pin whitelist is bad" from "the panel probe hangs".
++ * The panel is a command-mode DSI panel: the host pushes frames into the
++ * panel's frame memory and the panel refreshes itself, so no TE pin is
++ * wired up here.  Supplies follow the downstream Samsung device tree:
++ * DSI controller vdda = pm8953_s3, vddio = pm8953_l6, PHY vcca = pm8953_l3,
++ * panel vdd = pm8953_l17, panel vddio = pm8953_l6.
 + */
 +&mdss {
-+	status = "disabled";
++	status = "okay";
++};
++
++&mdss_dsi0_phy {
++	vcca-supply = <&pm8953_l3>;
++	status = "okay";
++};
++
++&mdss_dsi0 {
++	vdda-supply = <&pm8953_s3>;
++	vddio-supply = <&pm8953_l6>;
++	status = "okay";
++
++	panel@0 {
++		compatible = "samsung,s6e3fa3-ams568hn31";
++		reg = <0>;
++
++		vdd-supply = <&pm8953_l17>;
++		vddio-supply = <&pm8953_l6>;
++
++		reset-gpios = <&tlmm 50 GPIO_ACTIVE_LOW>;
++	};
 +};
