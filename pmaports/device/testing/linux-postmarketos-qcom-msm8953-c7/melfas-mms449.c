@@ -148,7 +148,7 @@ static void mms449_report(struct mms449 *ts, unsigned int size, const u8 *data)
 	input_sync(input);
 }
 
-static void mms449_read_events(struct mms449 *ts)
+static int mms449_read_events(struct mms449 *ts)
 {
 	u8 buf[1 + MMS449_EVENT_SIZE * MMS449_MAX_FINGERS];
 	unsigned int size, extra;
@@ -157,11 +157,11 @@ static void mms449_read_events(struct mms449 *ts)
 	ret = mms449_i2c_read(ts, MMS_PAGE_EVENT, MMS_EVENT_PACKET_INFO,
 			      buf, 1 + ts->event_size);
 	if (ret)
-		return;
+		return ret;
 
 	/* Alert packets (ESD, wakeup gesture) carry no touch data. */
 	if (buf[0] & MMS_EVENT_ALERT)
-		return;
+		return 0;
 
 	size = buf[0] & 0x7f;
 	if (size <= ts->event_size)
@@ -173,10 +173,12 @@ static void mms449_read_events(struct mms449 *ts)
 
 	ret = mms449_i2c_read_cont(ts, buf + 1 + ts->event_size, extra);
 	if (ret)
-		return;
+		return ret;
 
 report:
 	mms449_report(ts, size, buf + 1);
+
+	return 0;
 }
 
 static irqreturn_t mms449_irq(int irq, void *data)
@@ -200,7 +202,8 @@ static void mms449_poll(struct work_struct *work)
 	struct mms449 *ts = container_of(to_delayed_work(work),
 					 struct mms449, poll_work);
 
-	mms449_read_events(ts);
+	if (mms449_read_events(ts))
+		dev_err_ratelimited(&ts->client->dev, "event read failed\n");
 	schedule_delayed_work(&ts->poll_work, msecs_to_jiffies(poll_ms));
 }
 
