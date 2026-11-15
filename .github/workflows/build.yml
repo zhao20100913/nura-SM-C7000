@@ -308,6 +308,32 @@ jobs:
           cp -rv /tmp/postmarketOS-export/dtbs out/dtbs || true
 
           find out -maxdepth 1 -type f -exec sha256sum {} + > out/SHA256SUMS || true
+          # The rootfs UUID is generated fresh on every build, so patch the
+          # boot image cmdline to the UUID of the rootfs we just produced.
+          # Otherwise a boot.img from one run cannot boot a rootfs from another
+          # run (symptom: fail_halt_boot + "PMOS_LOGS" drive).
+          python3 - "out/boot.img" "out/$DEVICE-root.img" <<'PY'
+          import struct, sys, uuid
+
+          boot_path, root_path = sys.argv[1], sys.argv[2]
+          with open(root_path, "rb") as f:
+              f.seek(1024 + 0x68)
+              fs_uuid = str(uuid.UUID(bytes=f.read(16)))
+
+          with open(boot_path, "r+b") as f:
+              hdr = f.read(2048)
+              cmdline = hdr[64:576].split(b"\0")[0].decode()
+              parts = cmdline.split()
+              parts = [p for p in parts if not p.startswith("pmos_root_uuid=")]
+              parts.append("pmos_root_uuid=" + fs_uuid)
+              new = " ".join(parts).encode()
+              assert len(new) <= 512
+              new = new.ljust(512, b"\0")
+              f.seek(64)
+              f.write(new)
+
+          print("boot.img pmos_root_uuid set to", fs_uuid)
+          PY
 
       - name: Save build caches
         if: always()

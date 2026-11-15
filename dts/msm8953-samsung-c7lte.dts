@@ -270,12 +270,13 @@
 	 * Qualcomm boards with a Samsung ABL are known to protect.
 	 */
 	/* Only the pins our drivers actually use stay enabled: 4/5 UART, 24/50/94 panel,
-	 * 59/95 touch, 85/86 keys, 133 SD card detect, 135/136 i2c7. Reading the
-	 * control register of any other pin raises a synchronous external abort on
-	 * this bootloader (verified for pin 0 and pin 12), so the rest is reserved.
+	 * 59/95 touch, 76/77 WCNSS (wcss_wlan1/wlan2), 85/86 keys, 133 SD card
+	 * detect, 135/136 i2c7.  Reading the control register of any other pin
+	 * raises a synchronous external abort on this bootloader (verified for pin
+	 * 0 and pin 12), so the rest is reserved.
 	 */
 	gpio-reserved-ranges = <0 4>, <6 18>, <25 25>, <51 8>,
-			       <60 25>, <87 7>, <96 37>, <134 1>, <137 5>;
+			       <60 16>, <78 7>, <87 7>, <96 37>, <134 1>, <137 5>;
 
 	gpio_keys_default: gpio-keys-default-state {
 		pins = "gpio85", "gpio86";
