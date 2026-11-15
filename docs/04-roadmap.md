@@ -23,14 +23,15 @@
 
 ## M3 —— 显示（重头戏）
 
-> **状态：已在本仓库实现**（`panel-samsung-s6e3fa3.c`，提交 `aef30f0`、`0fb0192`），
+> **状态：已在本仓库实现**（`panel-samsung-s6e3fa3.c`，初始化序列用
+> `linux-mdss-dsi-panel-driver-generator` 从下游设备树生成，再补上本板的供电时序），
 > 本地编译通过，**尚未真机验证**。
 
 本设备的 **Samsung S6E3FA3** 面板原本没有对应的主线驱动。
 
-- [ ] 把下游的初始化序列（`drivers/video/msm/mdss/samsung/S6E3FA3_AMS568HN31/dsi_panel_S6E3FA3_AMS568HN31_fhd_octa_cmd.dtsi`）移植成 DRM 面板驱动。主线里最接近的起点是 `drivers/gpu/drm/panel/panel-samsung-s6e3fa7.c`（同一家族，但初始化序列和时序不同）。
-- [ ] 在 DTS 中描述 `mdss` / `mdss_dsi0` / `dsi_phy` 并接上面板：TE `gpio24`、reset `gpio50`、enable `gpio94`，供电轨由 PM8953 提供。
-- [ ] 背光：这块面板是自发光的；亮度通过 DSI 命令（`0x51`）控制，而不是 PWM/GPIO 背光。
+- [x] 把下游的初始化序列（`drivers/video/msm/mdss/samsung/S6E3FA3_AMS568HN31/dsi_panel_S6E3FA3_AMS568HN31_fhd_octa_cmd.dtsi`）移植成 DRM 面板驱动：用 `linux-mdss-dsi-panel-driver-generator`（`lmdpdg`）直接吃下游设备树生成初稿，再手工补 `vdd`/`vddio` 供电、`gpio94` 使能、`0x29` 显示开和 `0x51` 亮度。
+- [x] 在 DTS 中描述 `mdss` / `mdss_dsi0` / `dsi_phy` 并接上面板：TE `gpio24`、reset `gpio50`、enable `gpio94`，供电轨由 PM8953 提供。
+- [x] 背光：这块面板是自发光的；亮度通过 DSI 命令（`0x51`）控制，而不是 PWM/GPIO 背光。
 
 **通过标准：** 屏幕上出现 Tux/控制台，`modetest -M msm` 列出 1080×1920。
 

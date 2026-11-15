@@ -27,19 +27,22 @@ full partition size.
 
 ## M3 — Display (the big one)
 
-> **Status: implemented in this repo** (`panel-samsung-s6e3fa3.c`, commits
-> `aef30f0`/`0fb0192`), compiles locally, **not yet verified on hardware**.
+> **Status: implemented in this repo** (`panel-samsung-s6e3fa3.c`; the init
+> sequence was generated with `linux-mdss-dsi-panel-driver-generator` from the
+> downstream device tree and then extended with the board power sequencing),
+> compiles locally, **not yet verified on hardware**.
 
 No mainline driver exists for the **Samsung S6E3FA3** panel of this device.
 
-- [ ] Port the downstream init sequence
+- [x] Port the downstream init sequence
       (`drivers/video/msm/mdss/samsung/S6E3FA3_AMS568HN31/dsi_panel_S6E3FA3_AMS568HN31_fhd_octa_cmd.dtsi`)
-      into a DRM panel driver. The closest starting point in mainline is
-      `drivers/gpu/drm/panel/panel-samsung-s6e3fa7.c` (same family, different
-      init sequence and timings).
-- [ ] Describe `mdss` / `mdss_dsi0` / `dsi_phy` in the DTS and hook the panel:
+      into a DRM panel driver: `linux-mdss-dsi-panel-driver-generator`
+      (`lmdpdg`) generates a draft straight from the downstream device tree,
+      which was then extended with `vdd`/`vddio` supplies, the `gpio94`
+      enable, DCS display on (`0x29`) and DCS brightness (`0x51`).
+- [x] Describe `mdss` / `mdss_dsi0` / `dsi_phy` in the DTS and hook the panel:
       TE `gpio24`, reset `gpio50`, enable `gpio94`, supply rails via PM8953.
-- [ ] Backlight: this panel is self-emitting; brightness is a DSI command
+- [x] Backlight: this panel is self-emitting; brightness is a DSI command
       (`0x51`), not a PWM/GPIO backlight.
 
 **Pass:** Tux/console on screen, `modetest -M msm` lists 1080×1920.
