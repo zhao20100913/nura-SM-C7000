@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..22667d4
+index 0000000..9b3d557
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,294 @@
+@@ -0,0 +1,306 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -74,6 +74,10 @@ index 0000000..22667d4
 +
 +	gpio-keys {
 +		compatible = "gpio-keys";
++		/* Disabled for bring-up: with the pin whitelist applied, the
++		 * initramfs' check_keys() sees KEY_VOLUMEUP as pressed and
++		 * calls fail_halt_boot() -> "Creating logs disk". */
++		status = "disabled";
 +		pinctrl-names = "default";
 +		pinctrl-0 = <&gpio_keys_default>;
 +
@@ -273,8 +277,16 @@ index 0000000..22667d4
 +};
 +
 +&uart_0 {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&uart_console_active>;
++	/*
++	 * No pinctrl state: the pin mux is already set by the bootloader for
++	 * the console UART, and requesting it here makes msm_serial defer
++	 * behind pinctrl probing. That delay is real: with the display nodes
++	 * enabled, the UART only registered at 0.839 s while /init started at
++	 * 0.787 s, so the kernel printed "unable to open an initial console"
++	 * and the initramfs had to run without one.
++	 */
++	/delete-property/ pinctrl-names;
++	/delete-property/ pinctrl-0;
 +	status = "okay";
 +};
 +
