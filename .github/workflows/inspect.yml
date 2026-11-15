@@ -86,7 +86,9 @@ jobs:
                   print("---", name, filesize)
                   print(rd[body:body+min(filesize, 500)].decode("utf-8", "replace")[:500])
           print("entries", len(entries))
-          for k in ("/init", "/init_2nd.sh", "/bin/busybox", "/bin/busybox-extras",
-                    "/bin/sh", "/sbin/init", "/bin/mount", "/usr/bin/tee", "/usr/bin/logger"):
-              print(f"{k:26} {'yes' if k in entries else 'MISSING'} {entries.get(k, '')}")
+          print("first names:", [n for n in list(entries)[:15]])
+          norm = {n.lstrip("./"): v for n, v in entries.items()}
+          for k in ("init", "init_2nd.sh", "bin/busybox", "bin/busybox-extras",
+                    "bin/sh", "sbin/init", "bin/mount", "usr/bin/tee", "usr/bin/logger"):
+              print(f"{k:22} {'yes' if k in norm else 'MISSING'} {norm.get(k, '')}")
           PY
