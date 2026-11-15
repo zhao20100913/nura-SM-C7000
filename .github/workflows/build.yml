@@ -308,6 +308,11 @@ jobs:
           cp -rv /tmp/postmarketOS-export/dtbs out/dtbs || true
 
           find out -maxdepth 1 -type f -exec sha256sum {} + > out/SHA256SUMS || true
+          # Pin the filesystem UUID: pmbootstrap generates a new one per
+          # build, which makes boot.img and rootfs inseparable.  With a fixed
+          # UUID any boot.img we produce boots any rootfs we produce.
+          sudo tune2fs -U 6fb8f25b-07b4-4934-ab41-0921b7bc6a6c "out/$DEVICE-root.img" || true
+
           # The rootfs UUID is generated fresh on every build, so patch the
           # boot image cmdline to the UUID of the rootfs we just produced.
           # Otherwise a boot.img from one run cannot boot a rootfs from another
