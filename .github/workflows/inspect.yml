@@ -115,7 +115,11 @@ jobs:
               if name == "TRAILER!!!":
                   break
 
-          probe = b"exec >/dev/kmsg 2>&1\nset -x\n"
+          probe = (b"/bin/busybox mkdir -p /dev /proc\n"
+                       b"/bin/busybox mount -t devtmpfs dev /dev 2>/dev/null\n"
+                       b"exec >/dev/kmsg 2>&1\n"
+                       b"set -x\n"
+                       b"echo PROBE-START\n")
           for e in entries:
               if e[1] == "init":
                   if probe not in e[2]:
