@@ -147,6 +147,62 @@ jobs:
           print("boot-debug.img", len(img), hashlib.sha256(img).hexdigest())
           print("SEANDROIDENFORCE in tail:", b"SEANDROIDENFORCE" in tail)
 
+          # --- second image: display nodes disabled (`status = "fail"`) ----
+          # Tests the theory that mdss/dsi probe stalls printk. `okay` and
+          # `fail` are both 5 bytes with the NUL, so the blob keeps its size.
+          targets = ("display-subsystem@", "display-controller@", "dsi@", "phy@1a94400")
+
+          def name_at(strings, off):
+              end = strings.index(b"\0", off)
+              return bytes(strings[off:end]).decode("ascii", "replace")
+
+          def patch_fdt(blob):
+              magic, tot, off_s, off_str = struct.unpack(">IIII", blob[:16])
+              if magic != 0xD00DFEED:
+                  return blob, 0
+              b = bytearray(blob)
+              strings, s, node, hits = b[off_str:], off_s, None, 0
+              while True:
+                  tok = struct.unpack_from(">I", b, s)[0]
+                  s += 4
+                  if tok == 1:
+                      end = b.index(b"\0", s)
+                      node = bytes(b[s:end]).decode("ascii", "replace")
+                      s = (end + 1 + 3) & ~3
+                  elif tok == 2:
+                      node = None
+                  elif tok == 3:
+                      ln, noff = struct.unpack_from(">II", b, s)
+                      s += 8
+                      if (name_at(strings, noff) == "status" and ln >= 5 and node
+                              and any(node.startswith(t) for t in targets)
+                              and bytes(b[s:s + 4]) == b"okay"):
+                          b[s:s + 4] = b"fail"
+                          hits += 1
+                      s = (s + ln + 3) & ~3
+                  else:
+                      break
+              return bytes(b), hits
+
+          patched, o, total_hits = bytearray(tail), 0, 0
+          while True:
+              i = bytes(patched).find(b"\xd0\x0d\xfe\xed", o)
+              if i < 0:
+                  break
+              size = struct.unpack_from(">I", patched, i + 4)[0]
+              fixed, hits = patch_fdt(bytes(patched[i:i + size]))
+              patched[i:i + size] = fixed
+              total_hits += hits
+              o = i + size
+          print("display nodes set to fail:", total_hits)
+          img2 = (bytes(hdr) + b"\0" * (align(1632) - 1632)
+                  + data[koff:koff + ksz] + b"\0" * (align(ksz) - ksz)
+                  + new_rd + b"\0" * (align(len(new_rd)) - len(new_rd))
+                  + bytes(patched))
+          pathlib.Path("out/boot-nodrm.img").write_bytes(img2)
+          print("boot-nodrm.img", len(img2), hashlib.sha256(img2).hexdigest())
+          assert total_hits >= 1
+
           # --- verify what we just wrote -------------------------------
           u32b = lambda off: struct.unpack_from("<I", img, off)[0]
           assert img[:8] == b"ANDROID!" and u32b(36) == page
@@ -176,5 +232,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: boot-debug-${{ github.run_id }}
-          path: out/boot-debug.img
+          path: |
+            out/boot-debug.img
+            out/boot-nodrm.img
           retention-days: 7
