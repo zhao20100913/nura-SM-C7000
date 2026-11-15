@@ -37,8 +37,14 @@ jobs:
 
       - name: Inspect boot.img
         run: |
+          python3 -m pip install --quiet zstandard
           python3 - <<'PY'
-          import gzip, pathlib, struct
+          import gzip, io, pathlib, struct
+
+          try:
+              import zstandard
+          except ImportError:
+              zstandard = None
 
           p = next(pathlib.Path("art").rglob("boot.img"))
           data = p.read_bytes()
@@ -54,9 +60,13 @@ jobs:
           align = lambda n: (n + page - 1) // page * page
           off = page + align(kernel_size)
           rd = data[off:off + ramdisk_size]
+          magic = rd[:4].hex()
           if rd[:2] == b"\x1f\x8b":
               rd = gzip.decompress(rd)
-          print("ramdisk bytes", len(rd))
+          elif magic == "28b52ffd":
+              assert zstandard is not None
+              rd = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(rd)).read()
+          print("ramdisk magic", magic, "-> bytes", len(rd))
 
           pos = 0; entries = {}
           while pos + 110 <= len(rd):
