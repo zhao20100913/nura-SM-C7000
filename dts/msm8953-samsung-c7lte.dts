@@ -16,7 +16,7 @@
  *   panel   Samsung S6E3FA3 AMS568HN31, 1080x1920 command mode DSI,
  *           TE gpio24, reset gpio50, enable gpio94
  *   touch   Melfas MMS449 (mms_ts) at 0x48 on i2c_7 (BLSP2 QUP3),
- *           irq gpio59, vdd_en gpio95
+ *           irq gpio65, vdd_en gpio95
  *   keys    volume-up gpio85, home gpio86, power via PM8953 PON
  *   sdc2    card detect gpio133 (active low)
  */
@@ -270,13 +270,13 @@
 	 * Qualcomm boards with a Samsung ABL are known to protect.
 	 */
 	/* Only the pins our drivers actually use stay enabled: 4/5 UART, 24/50/94 panel,
-	 * 59/95 touch, 76-80 WCNSS (wcss_wlan0/wlan1/wlan2/wlan), 85/86 keys, 133 SD
+	 * 65/95 touch, 76-80 WCNSS (wcss_wlan0/wlan1/wlan2/wlan), 85/86 keys, 133 SD
 	 * card detect, 135/136 i2c7.  Reading the control register of any other pin
 	 * raises a synchronous external abort on this bootloader (verified for pin
 	 * 0 and pin 12), so the rest is reserved.
 	 */
 	gpio-reserved-ranges = <0 4>, <6 18>, <25 25>, <51 8>,
-			       <60 16>, <81 4>, <87 7>, <96 37>, <134 1>, <137 5>;
+			       <60 5>, <66 10>, <81 4>, <87 7>, <96 37>, <134 1>, <137 5>;
 
 	gpio_keys_default: gpio-keys-default-state {
 		pins = "gpio85", "gpio86";
@@ -324,7 +324,7 @@
 
 	/* MMS449 interrupt line, driven open drain by the controller. */
 	tsp_int_default: tsp-int-default-state {
-		pins = "gpio59";
+		pins = "gpio65";
 		function = "gpio";
 		drive-strength = <2>;
 		bias-disable;
@@ -405,7 +405,7 @@
 /*
  * Touch: Melfas MMS449 on BLSP2 QUP3 (i2c_7) at 0x48.  The controller is
  * powered from a switch on gpio95 (vdd_en, active high) and raises its
- * interrupt line (gpio59) when an event packet is queued.  It has no reset
+ * interrupt line (gpio65) when an event packet is queued.  It has no reset
  * line and needs no firmware download.
  */
 &i2c_7 {
@@ -416,7 +416,7 @@
 		reg = <0x48>;
 
 		interrupt-parent = <&tlmm>;
-		interrupts = <59 IRQ_TYPE_EDGE_FALLING>;
+		interrupts = <65 IRQ_TYPE_EDGE_FALLING>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&tsp_int_default>;
