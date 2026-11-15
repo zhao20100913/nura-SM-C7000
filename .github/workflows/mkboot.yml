@@ -68,14 +68,18 @@ jobs:
           for e in entries:
               if e[1] == "init":
                   if probe not in e[2]:
-                      e[2] = e[2].replace(b"#!/bin/busybox ash\n",
-                                          b"#!/bin/busybox ash\n" + probe, 1)
+                      # Insert right after the shebang line, whatever it is.
+                      nl = e[2].find(b"\n")
+                      assert nl > 0, "no shebang line in init"
+                      e[2] = e[2][:nl + 1] + probe + e[2][nl + 1:]
                   assert probe in e[2]
                   if mode == "nolog":
-                      assert b"\nsetup_log\n" in e[2]
-                      e[2] = e[2].replace(b"\nsetup_log\n",
-                                          b"\necho SKIP-SETUP-LOG >/dev/kmsg\n", 1)
-                      print("setup_log call replaced")
+                      if b"\nsetup_log\n" in e[2]:
+                          e[2] = e[2].replace(b"\nsetup_log\n",
+                                              b"\necho SKIP-SETUP-LOG >/dev/kmsg\n", 1)
+                          print("setup_log call replaced")
+                      else:
+                          print("setup_log call not found, skipped")
 
           out = b""
           for f, name, body in entries:
