@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..7bd1363
+index 0000000..10cbbdb
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,329 @@
+@@ -0,0 +1,345 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -331,5 +331,21 @@ index 0000000..7bd1363
 +		vddio-supply = <&pm8953_l6>;
 +
 +		reset-gpios = <&tlmm 50 GPIO_ACTIVE_LOW>;
++
++		port {
++			panel_in: endpoint {
++				remote-endpoint = <&mdss_dsi0_out>;
++			};
++		};
 +	};
++};
++
++/*
++ * Link the DSI output to the panel and tell the host how many lanes are
++ * routed.  The mainline SoC dtsi leaves this endpoint empty; dsi_host.c
++ * reads "data-lanes" from it (of_graph_get_endpoint_by_regs(np, 1, -1)).
++ */
++&mdss_dsi0_out {
++	remote-endpoint = <&panel_in>;
++	data-lanes = <0 1 2 3>;
 +};
