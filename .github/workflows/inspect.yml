@@ -38,25 +38,26 @@ jobs:
       - name: Inspect boot.img
         run: |
           python3 - <<'PY'
-          import struct, gzip, io, pathlib, sys
+          import gzip, pathlib, struct
 
           p = next(pathlib.Path("art").rglob("boot.img"))
           data = p.read_bytes()
-          magic = data[:8]
-          assert magic == b"ANDROID!", magic
-          (kernel_size, kernel_addr, ramdisk_size, ramdisk_addr, second_size,
-           second_addr, tags_addr, page_size, _, _, name, cmdline, _id,
-           extra_size) = struct.unpack("<IIIIIIIIII10s512sI", data[8:8+4*10+10+512+4])
-          print("page", page_size, "kernel", kernel_size, "ramdisk", ramdisk_size,
-                "dt", extra_size, "cmdline", cmdline.split(b"\0")[0].decode())
-          off = page_size * ((8+4*10+10+512+4 + extra_size + page_size - 1)//page_size)
-          off += (kernel_size + page_size - 1)//page_size*page_size
-          rd = data[off:off+ramdisk_size]
+          u32 = lambda off: struct.unpack_from("<I", data, off)[0]
+          assert data[:8] == b"ANDROID!", data[:8]
+          kernel_size, ramdisk_size, second_size = u32(8), u32(16), u32(24)
+          page = u32(36); hdrver = u32(40)
+          cmdline = data[64:576].split(b"\0")[0].decode()
+          dt_size = u32(1632) if len(data) > 1632 else 0
+          print("page", page, "hdrver", hdrver, "kernel", kernel_size,
+                "ramdisk", ramdisk_size, "second", second_size, "dt", dt_size)
+          print("cmdline:", cmdline)
+          align = lambda n: (n + page - 1) // page * page
+          off = page + align(kernel_size)
+          rd = data[off:off + ramdisk_size]
           if rd[:2] == b"\x1f\x8b":
               rd = gzip.decompress(rd)
           print("ramdisk bytes", len(rd))
 
-          # cpio newc
           pos = 0; entries = {}
           while pos + 110 <= len(rd):
               hdr = rd[pos:pos+110]
@@ -65,19 +66,17 @@ jobs:
               f = lambda i: int(hdr[6+8*i:14+8*i], 16)
               namesize, filesize = f(11), f(6)
               name = rd[pos+110:pos+110+namesize-1].decode("utf-8", "replace")
-              entries[name] = filesize
-              pos = pos + 110 + namesize
-              pos = (pos + 3) & ~3
+              pos = (pos + 110 + namesize + 3) & ~3
               body = pos
-              pos = pos + filesize
-              pos = (pos + 3) & ~3
+              pos = (pos + filesize + 3) & ~3
+              entries[name] = filesize
               if name == "TRAILER!!!":
                   break
-              if name in ("/init", "/bin/busybox", "/bin/sh", "/sbin/init", "/init_2nd.sh"):
+              if name in ("/init", "/bin/sh", "/init_2nd.sh"):
                   print("---", name, filesize)
-                  print(rd[body:body+min(filesize, 400)].decode("utf-8", "replace")[:400])
+                  print(rd[body:body+min(filesize, 500)].decode("utf-8", "replace")[:500])
           print("entries", len(entries))
           for k in ("/init", "/init_2nd.sh", "/bin/busybox", "/bin/busybox-extras",
-                    "/bin/sh", "/sbin/init", "/usr/bin/tee", "/usr/bin/logger"):
-              print(f"{k:28} {'yes' if k in entries else 'MISSING':8} {entries.get(k,'')}")
+                    "/bin/sh", "/sbin/init", "/bin/mount", "/usr/bin/tee", "/usr/bin/logger"):
+              print(f"{k:26} {'yes' if k in entries else 'MISSING'} {entries.get(k, '')}")
           PY
