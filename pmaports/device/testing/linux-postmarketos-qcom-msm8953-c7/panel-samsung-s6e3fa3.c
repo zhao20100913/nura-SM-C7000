@@ -35,7 +35,6 @@
 #include <drm/drm_mipi_dsi.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_panel.h>
-#include <drm/drm_probe_helper.h>
 
 #define S6E3FA3_DEFAULT_BRIGHTNESS	365
 #define S6E3FA3_MAX_BRIGHTNESS		365
@@ -220,8 +219,24 @@ static const struct drm_display_mode s6e3fa3_panel_mode = {
 static int s6e3fa3_panel_get_modes(struct drm_panel *panel,
 				   struct drm_connector *connector)
 {
-	return drm_connector_helper_get_modes_fixed(connector,
-						    &s6e3fa3_panel_mode);
+	struct drm_display_mode *mode;
+
+	/*
+	 * drm_connector_helper_get_modes_fixed() lives in drm_kms_helper,
+	 * which is a module here while this panel driver is built in, so
+	 * duplicate the static mode by hand.
+	 */
+	mode = drm_mode_duplicate(connector->dev, &s6e3fa3_panel_mode);
+	if (!mode)
+		return -ENOMEM;
+
+	drm_mode_set_name(mode);
+	mode->type = DRM_MODE_TYPE_DRIVER | DRM_MODE_TYPE_PREFERRED;
+	connector->display_info.width_mm = mode->width_mm;
+	connector->display_info.height_mm = mode->height_mm;
+	drm_mode_probed_add(connector, mode);
+
+	return 1;
 }
 
 static const struct drm_panel_funcs s6e3fa3_panel_funcs = {
