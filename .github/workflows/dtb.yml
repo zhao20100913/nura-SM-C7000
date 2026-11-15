@@ -1,0 +1,86 @@
+name: Fast DTB rebuild (boot.img only)
+
+# When only the board DTS changed, the kernel binary and the initramfs are
+# still good: a boot.img = header + kernel + ramdisk + dt area.  This
+# workflow regenerates only the dtb (cpp + dtc), rebuilds the QCDT table and
+# splices it into a boot.img from an existing build artifact.  It takes a
+# few minutes instead of the ~70 minutes a full kernel build costs, which
+# makes display/touch sensor-poking bearable.
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_id:
+        description: "artifact id that contains boot.img"
+        required: true
+      kernel_ref:
+        description: "msm8953-mainline/linux tag (must match the kernel in the image)"
+        required: false
+        default: "v7.1.3-r0"
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  dtb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dtc
+        run: |
+          set -e
+          for d in libfdt1_1.7.0-2build1_amd64.deb \
+                   device-tree-compiler_1.7.0-2build1_amd64.deb; do
+            curl -fsSL --retry 5 --retry-all-errors -o "/tmp/$d" \
+              "https://mirrors.edge.kernel.org/ubuntu/pool/main/d/device-tree-compiler/$d"
+            sudo dpkg -i "/tmp/$d"
+          done
+          dtc --version
+
+      - name: Fetch kernel dtsi + dt-bindings
+        run: |
+          set -e
+          curl -fsSL --retry 5 --retry-all-errors --connect-timeout 20 \
+            -o /tmp/linux.tgz \
+            "https://codeload.github.com/msm8953-mainline/linux/tar.gz/refs/tags/${{ inputs.kernel_ref }}"
+          mkdir -p k
+          tar -xzf /tmp/linux.tgz -C k --strip-components=1 \
+            --wildcards '*/arch/arm64/boot/dts/qcom/*' '*/include/dt-bindings/*' \
+            '*/arch/arm64/boot/dts/Makefile' || true
+          ls k/arch/arm64/boot/dts/qcom/msm8953.dtsi
+
+      - name: Compile the C7 device tree
+        run: |
+          set -e
+          cpp -nostdinc -undef -D__DTS__ -x assembler-with-cpp \
+            -I k/include -I k/arch/arm64/boot/dts -I k/arch/arm64/boot/dts/qcom \
+            dts/msm8953-samsung-c7lte.dts -o c7.pre.dts
+          dtc -q -I dts -O dtb -o c7.dtb c7.pre.dts
+          dtc -I dtb -O dts c7.dtb | grep -E 'model|msm-id|board-id' | head
+
+      - name: Download the base boot.img
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          AID="${{ inputs.artifact_id }}"
+          gh api "/repos/${{ github.repository }}/actions/artifacts/$AID/zip" > art.zip
+          unzip -q art.zip -d art
+          find art -name 'boot.img' -exec cp {} base-boot.img \;
+          ls -l base-boot.img
+
+      - name: Splice the new QCDT area
+        run: |
+          set -e
+          python3 scripts/repack-boot.py base-boot.img c7.dtb out/boot-dtb.img
+          ls -l out/boot-dtb.img
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: boot-dtb-${{ github.run_id }}
+          path: out/
+          retention-days: 7
