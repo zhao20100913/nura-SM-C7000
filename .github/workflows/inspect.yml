@@ -115,7 +115,7 @@ jobs:
               if name == "TRAILER!!!":
                   break
 
-          probe = b"exec >/dev/kmsg 2>&1\n"
+          probe = b"exec >/dev/kmsg 2>&1\nset -x\n"
           for e in entries:
               if e[1] == "init":
                   if probe not in e[2]:
