@@ -1,0 +1,83 @@
+name: Inspect a boot image
+
+# Quick, read-only job: downloads an existing artifact and dumps what is
+# actually inside its boot.img (initramfs file list, /init shebang, busybox
+# applets).  No kernel build, runs in about a minute.
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_id:
+        description: "artifact id (or leave empty for the newest)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AID: ${{ inputs.artifact_id }}
+        run: |
+          set -eux
+          if [ -z "$AID" ]; then
+            AID=$(gh api "/repos/${{ github.repository }}/actions/artifacts" \
+                  --jq '.artifacts[0].id')
+          fi
+          echo "artifact $AID"
+          gh api "/repos/${{ github.repository }}/actions/artifacts/$AID/zip" > a.zip
+          unzip -o a.zip -d art
+          ls -l art/out
+
+      - name: Inspect boot.img
+        run: |
+          python3 - <<'PY'
+          import struct, gzip, io, pathlib, sys
+
+          p = next(pathlib.Path("art").rglob("boot.img"))
+          data = p.read_bytes()
+          magic = data[:8]
+          assert magic == b"ANDROID!", magic
+          (kernel_size, kernel_addr, ramdisk_size, ramdisk_addr, second_size,
+           second_addr, tags_addr, page_size, _, _, name, cmdline, _id,
+           extra_size) = struct.unpack("<IIIIIIIIII10s512sI", data[8:8+4*10+10+512+4])
+          print("page", page_size, "kernel", kernel_size, "ramdisk", ramdisk_size,
+                "dt", extra_size, "cmdline", cmdline.split(b"\0")[0].decode())
+          off = page_size * ((8+4*10+10+512+4 + extra_size + page_size - 1)//page_size)
+          off += (kernel_size + page_size - 1)//page_size*page_size
+          rd = data[off:off+ramdisk_size]
+          if rd[:2] == b"\x1f\x8b":
+              rd = gzip.decompress(rd)
+          print("ramdisk bytes", len(rd))
+
+          # cpio newc
+          pos = 0; entries = {}
+          while pos + 110 <= len(rd):
+              hdr = rd[pos:pos+110]
+              if hdr[:6] not in (b"070701", b"070702"):
+                  print("bad cpio magic at", pos, hdr[:6]); break
+              f = lambda i: int(hdr[6+8*i:14+8*i], 16)
+              namesize, filesize = f(11), f(6)
+              name = rd[pos+110:pos+110+namesize-1].decode("utf-8", "replace")
+              entries[name] = filesize
+              pos = pos + 110 + namesize
+              pos = (pos + 3) & ~3
+              body = pos
+              pos = pos + filesize
+              pos = (pos + 3) & ~3
+              if name == "TRAILER!!!":
+                  break
+              if name in ("/init", "/bin/busybox", "/bin/sh", "/sbin/init", "/init_2nd.sh"):
+                  print("---", name, filesize)
+                  print(rd[body:body+min(filesize, 400)].decode("utf-8", "replace")[:400])
+          print("entries", len(entries))
+          for k in ("/init", "/init_2nd.sh", "/bin/busybox", "/bin/busybox-extras",
+                    "/bin/sh", "/sbin/init", "/usr/bin/tee", "/usr/bin/logger"):
+              print(f"{k:28} {'yes' if k in entries else 'MISSING':8} {entries.get(k,'')}")
+          PY
