@@ -98,6 +98,7 @@ prepare() {
 		help
 		  Say Y to enable the SM5705 switching charger found in the
 		  Samsung Galaxy C7 (SM-C7000).
+	KCONF
 
 	# SM5705 fuel gauge, same scheme.
 	cp "$srcdir"/sm5705-fuelgauge.c drivers/power/supply/
