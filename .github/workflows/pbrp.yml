@@ -70,8 +70,13 @@ jobs:
       - name: Repo sync
         run: |
           cd ~/pbrp
-          repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags || \
-          repo sync -c -j$(nproc --all) --force-sync --no-clone-bundle --no-tags
+          # No -c: soong needs every project listed in the manifest, otherwise
+          # modules such as neuralnetworks_utils_defaults are "undefined".
+          for i in 1 2 3; do
+            repo sync -j$(nproc --all) --force-sync --no-clone-bundle --no-tags && break
+            echo "repo sync attempt $i failed, retrying in $((i * 30))s"
+            sleep $((i * 30))
+          done
 
       - name: Copy device tree
         run: |
