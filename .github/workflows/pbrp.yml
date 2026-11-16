@@ -83,6 +83,16 @@ jobs:
           mkdir -p ~/pbrp/device/samsung
           cp -a "$GITHUB_WORKSPACE/pbrp/device/samsung/c7lte" ~/pbrp/device/samsung/c7lte
 
+      - name: Inspect the tree (bring-up diagnostics)
+        if: always()
+        run: |
+          cd ~/pbrp
+          echo "== neuralnetworks dirs =="
+          find hardware/interfaces/neuralnetworks -maxdepth 2 -type d 2>/dev/null | head -30
+          echo "== Android.bp mentioning neuralnetworks_utils_defaults =="
+          grep -rl "neuralnetworks_utils_defaults" --include=Android.bp . 2>/dev/null | head -20
+          echo "== does 1.0/default exist? =="
+          ls hardware/interfaces/neuralnetworks/1.0 2>/dev/null
       - name: Build recovery image
         run: |
           cd ~/pbrp
