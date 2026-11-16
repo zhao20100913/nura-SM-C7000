@@ -303,7 +303,7 @@ static int sm5705_probe(struct i2c_client *client)
 	sm5705_dump_regs(chg, "probe");
 
 	psy_cfg.drv_data = chg;
-	psy_cfg.of_node = client->dev.of_node;
+	psy_cfg.fwnode = dev_fwnode(&client->dev);
 	chg->psy = devm_power_supply_register(chg->dev, &sm5705_psy_desc,
 					      &psy_cfg);
 	if (IS_ERR(chg->psy))
