@@ -114,7 +114,14 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/envsetup.sh
           lunch pbrp_${DEVICE}-eng
-          make -j$(nproc --all) recoveryimage
+          # First pass builds everything; on 12.1 the recovery ramdisk step can
+          # trip over a stale "root/vendor" directory vs. the vendor symlink.
+          # Removing it and re-running the (now incremental) build fixes that.
+          make -j$(nproc --all) recoveryimage || {
+            echo "== first pass failed, clearing recovery/root/vendor and retrying =="
+            rm -rf "out/target/product/${DEVICE}/recovery/root/vendor"
+            make -j$(nproc --all) recoveryimage
+          }
 
       - name: Collect artifacts
         if: always()
