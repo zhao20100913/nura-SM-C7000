@@ -1,9 +1,9 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..106b4c6
+index 0000000..86a2dc4
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,468 @@
+@@ -0,0 +1,514 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -282,7 +282,24 @@ index 0000000..106b4c6
 +	 * 0 and pin 12), so the rest is reserved.
 +	 */
 +	gpio-reserved-ranges = <0 4>, <6 18>, <25 25>, <51 8>,
-+			       <60 5>, <66 10>, <81 4>, <87 7>, <96 37>, <134 1>, <137 5>;
++			       <60 1>, <62 1>, <64 1>, <66 10>, <81 4>, <87 7>,
++			       <96 2>, <100 33>, <134 1>, <137 5>;
++
++	/* SM5705 charger: bit-banged I2C on gpio98/99, IRQ on gpio61 */
++	sm5705_i2c_default: sm5705-i2c-default-state {
++		pins = "gpio98", "gpio99";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	sm5705_chg_int_default: sm5705-chg-int-default-state {
++		pins = "gpio61";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-up;
++		input-enable;
++	};
 +
 +	gpio_keys_default: gpio-keys-default-state {
 +		pins = "gpio85", "gpio86";
@@ -471,4 +488,33 @@ index 0000000..106b4c6
 +	vddrfa-supply = <&pm8953_l19>;
 +	vddpa-supply = <&pm8953_l9>;
 +	vdddig-supply = <&pm8953_l5>;
++};
++
++/*
++ * SM5705 (MUIC + switching charger + flash LED) on the same bit-banged
++ * bus the downstream kernel uses (SDA gpio98, SCL gpio99, IRQ gpio61).
++ * Only the charger part is described here; the MUIC and LED blocks are
++ * not supported yet.
++ */
++&{/} {
++	sm5705_i2c: i2c-sm5705 {
++	compatible = "i2c-gpio";
++	sda-gpios = <&tlmm 98 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++	scl-gpios = <&tlmm 99 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++	i2c-gpio,delay-us = <2>;
++	#address-cells = <1>;
++	#size-cells = <0>;
++
++	pinctrl-names = "default";
++	pinctrl-0 = <&sm5705_i2c_default>;
++
++	charger@49 {
++		compatible = "siliconmitus,sm5705-charger";
++		reg = <0x49>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <61 IRQ_TYPE_EDGE_FALLING>;
++		pinctrl-names = "default";
++		pinctrl-0 = <&sm5705_chg_int_default>;
++	};
++};
 +};
