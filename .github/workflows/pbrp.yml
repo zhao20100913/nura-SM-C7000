@@ -98,6 +98,16 @@ jobs:
           echo "== utils/common contents =="
           ls -l hardware/interfaces/neuralnetworks/utils/common 2>/dev/null
           grep -n "neuralnetworks_utils_defaults" hardware/interfaces/neuralnetworks/utils/common/Android.bp 2>/dev/null | head
+      - name: Disable the NNAPI utility modules (PBRP manifest gap)
+        run: |
+          cd ~/pbrp
+          # The manifest does not ship the project that defines the
+          # "neuralnetworks_utils_defaults" defaults module, so soong stops
+          # even though recovery never uses NNAPI. Park those blueprints.
+          for f in $(grep -rl "neuralnetworks_utils_defaults" --include=Android.bp hardware/ 2>/dev/null); do
+            echo "parking $f"
+            mv "$f" "$f.disabled"
+          done
       - name: Build recovery image
         run: |
           cd ~/pbrp
