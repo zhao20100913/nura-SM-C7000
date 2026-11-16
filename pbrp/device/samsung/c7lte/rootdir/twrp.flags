@@ -1,0 +1,13 @@
+# TWRP flags for Samsung Galaxy C7 (SM-C7000)
+
+/system     flags=backup=1;display="System"
+/data       flags=backup=1;display="Data";wipeingui;mounttodecrypt;wipeduringfactoryreset
+/cache      flags=backup=1;display="Cache"
+/boot       flags=backup=1;display="Boot"
+/recovery   flags=backup=1;display="Recovery"
+/efs        flags=backup=1;display="EFS"
+/persist    flags=backup=1;display="Persist"
+/firmware   flags=backup=1;display="Firmware"
+/modem      flags=backup=1;display="Modem"
+/external_sd flags=display="MicroSD";storage;wipeingui;removable
+/usb_otg    flags=display="USB-OTG";storage;wipeingui;removable
