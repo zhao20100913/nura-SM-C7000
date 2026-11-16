@@ -13,6 +13,7 @@
  */
 
 #include <linux/i2c.h>
+#include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/power_supply.h>
