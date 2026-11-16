@@ -6,7 +6,7 @@ maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 _flavor="postmarketos-qcom-msm8953-c7"
 pkgname=linux-$_flavor
 pkgver=7.1.3
-pkgrel=25
+pkgrel=26
 pkgdesc="Mainline kernel for the Samsung Galaxy C7 (SM-C7000), MSM8953"
 arch="aarch64"
 _carch="arm64"
@@ -40,6 +40,7 @@ source="
 	panel-samsung-s6e3fa3.c
 	melfas-mms449.c
 	sm5705-charger.c
+	sm5705-fuelgauge.c
 "
 builddir="$srcdir/linux-$_tag"
 
@@ -97,6 +98,19 @@ prepare() {
 		help
 		  Say Y to enable the SM5705 switching charger found in the
 		  Samsung Galaxy C7 (SM-C7000).
+
+	# SM5705 fuel gauge, same scheme.
+	cp "$srcdir"/sm5705-fuelgauge.c drivers/power/supply/
+	echo 'obj-$(CONFIG_SM5705_FUELGAUGE) += sm5705-fuelgauge.o' \
+		>> drivers/power/supply/Makefile
+	cat >> drivers/power/supply/Kconfig <<-KCONF
+
+	config SM5705_FUELGAUGE
+		tristate "Silicon Mitus SM5705 fuel gauge"
+		depends on I2C
+		help
+		  Say Y to enable the SM5705 fuel gauge found in the Samsung
+		  Galaxy C7 (SM-C7000).
 	KCONF
 }
 
@@ -130,8 +144,9 @@ package() {
 # "pmbootstrap checksum" anyway, so any drift is fixed automatically.
 sha512sums="\
 	a57d343c41065df0d41c7005aee07855e7d7aea592327f97c219d8109c10a60b08f54f494a132b4d1d3a549fb4dbffb523e8f49415c0905805f1332f4ddf2dcc  $pkgname-v$_tag.tar.gz \
-	0dc33fd48463e65ad3511485a08e67a6f820e8641b2ca2dc4927c894696c564c972f49f8be8ced5fc982790485469fe031e57242eb3a6d649ed792d78daff6cf  config-postmarketos-qcom-msm8953-c7.aarch64 \
-	8954bbd5e3c4d73aecdc9899afd567f7e0f4b52fbf2b11bff20a77ab40acb40720d03e807e78d3ee4b2d88599c26c56383c1897040ae263c8f95555561c1442e  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch \
+	d8d00104d8318d58d178a205c663362f7a535ac24aafcf6b80cfd13a1faeb3ab068dc9228ba4bdd3f6a2d8417f090e8023395e49fb37f3517aae4253217aafcc  config-postmarketos-qcom-msm8953-c7.aarch64 \
+	0318d025d352fda1f718cfca8c9071a3ee9c1b5c11cc5b166c3480c4c763bebf30044c1bcf5b9261481cb599bdd5e2f0e834fd72217c01f06dfd9c2a99048658  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch \
 	ccd3ee219da9ee942c6375b23fbe953af3346f825a2065fd9ae06161c33bb1dda1e38d357bb4e42ea4c2bf9212955991870b21e530256305043c805a06bda97b  panel-samsung-s6e3fa3.c \
 	b74e2dc5fdc449bc82bef3744d56b59df0dc7269f79b2d905a5d2d93a83ea137bb8eac6324de061702c2cabcefd634ad787a99cfe3b3dc55187a67c9d52692e8  melfas-mms449.c \
-	20aabc6f6070076f6f5388c494237efe8be6701196675930b995a213504caf7ba7b690b8bdf5eb5c37bf33c5dde49f634a2fd5ea3151da482f9fa53c116ddc8b  sm5705-charger.c"
+	20aabc6f6070076f6f5388c494237efe8be6701196675930b995a213504caf7ba7b690b8bdf5eb5c37bf33c5dde49f634a2fd5ea3151da482f9fa53c116ddc8b  sm5705-charger.c \
+	c75d695ed3e3675ca37a510e6f04d5e5c2cc9476f634374da71d5180ba0519cfdbb094abae90c1377b343b9e3478b554b3b42e87afc368ee3e1050230349cda2  sm5705-fuelgauge.c"
