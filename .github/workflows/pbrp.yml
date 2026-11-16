@@ -93,9 +93,15 @@ jobs:
           grep -rl "neuralnetworks_utils_defaults" --include=Android.bp . 2>/dev/null | head -20
           echo "== does 1.0/default exist? =="
           ls hardware/interfaces/neuralnetworks/1.0 2>/dev/null
+          echo "== definitions of neuralnetworks_utils_defaults =="
+          grep -rn "name: \"neuralnetworks_utils_defaults\"" --include=Android.bp . 2>/dev/null | head
+          echo "== utils/common contents =="
+          ls -l hardware/interfaces/neuralnetworks/utils/common 2>/dev/null
+          grep -n "neuralnetworks_utils_defaults" hardware/interfaces/neuralnetworks/utils/common/Android.bp 2>/dev/null | head
       - name: Build recovery image
         run: |
           cd ~/pbrp
+          export ALLOW_MISSING_DEPENDENCIES=true
           source build/envsetup.sh
           lunch pbrp_${DEVICE}-eng
           make -j$(nproc --all) recoveryimage
