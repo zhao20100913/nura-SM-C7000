@@ -108,6 +108,13 @@ jobs:
             echo "parking $f"
             mv "$f" "$f.disabled"
           done
+      - name: Keep only English + Simplified Chinese UI strings
+        run: |
+          cd ~/pbrp
+          # twres/languages is ~1.4 MB of XML; the recovery partition is
+          # 32 MiB and the image was 154 KiB over.  Prune every locale we
+          # do not need (keeps English and 简体中文).
+          find bootable -path '*languages/*.xml' ! -name 'en.xml' ! -name 'zh_CN.xml' -print -delete | wc -l
       - name: Build recovery image
         run: |
           cd ~/pbrp
