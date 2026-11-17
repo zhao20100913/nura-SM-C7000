@@ -112,6 +112,22 @@ jobs:
         run: |
           cd ~/pbrp
           export ALLOW_MISSING_DEPENDENCIES=true
+          # Android 12.1 packaging: rsync copies out/.../root into
+          # out/.../recovery, and a stale, non-empty recovery/root/vendor
+          # directory blocks the vendor -> /system/vendor symlink.  Wrap rsync
+          # so that directory is dropped at exactly the right moment.
+          mkdir -p ~/bin
+          cat > ~/bin/rsync <<'RSYNC'
+          #!/bin/bash
+          last="${!#}"
+          if [[ "$last" == */recovery ]]; then
+            rm -rf "$last/root/vendor"
+          fi
+          exec /usr/bin/rsync "$@"
+          RSYNC
+          sed -i 's/^ *//' ~/bin/rsync
+          chmod +x ~/bin/rsync
+          export PATH="$HOME/bin:$PATH"
           source build/envsetup.sh
           lunch pbrp_${DEVICE}-eng
           # First pass builds everything; on 12.1 the recovery ramdisk step can
