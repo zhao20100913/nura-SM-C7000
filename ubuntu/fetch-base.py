@@ -11,17 +11,55 @@ This script downloads the newest usable ``nura-c7-*`` artifact of that workflow
 and unpacks ``boot.img`` plus ``<device>-root.img`` into the output directory.
 """
 
-import io
 import json
 import os
 import shutil
 import sys
 import urllib.error
+import tempfile
+import urllib.parse
 import urllib.request
 import zipfile
 
 API = "https://api.github.com"
 MIN_SIZE = 100 * 1024 * 1024  # smaller artifacts are failed/partial builds
+
+
+class _NoAuthRedirect(urllib.request.HTTPRedirectHandler):
+    """Keep the token for api.github.com only.
+
+    The artifact zip endpoint answers 302 with a signed blob-storage URL, and
+    that URL rejects requests that still carry an Authorization header
+    ("Server failed to authenticate the request"), so drop it on cross-host
+    redirects.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is None:
+            return None
+        old_host = urllib.parse.urlsplit(req.full_url).netloc
+        if urllib.parse.urlsplit(newurl).netloc != old_host:
+            for store in (new.headers, new.unredirected_hdrs):
+                for key in [k for k in store if k.lower() == "authorization"]:
+                    del store[key]
+        return new
+
+
+OPENER = urllib.request.build_opener(_NoAuthRedirect)
+
+
+def download(url: str, token: str, dest: str) -> None:
+    req = urllib.request.Request(
+        url,
+        headers={
+            "Authorization": "token %s" % token,
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "c7-ubuntu-builder",
+        },
+    )
+    with OPENER.open(req, timeout=600) as resp, open(dest, "wb") as fh:
+        shutil.copyfileobj(resp, fh, 1 << 20)
 
 
 def api_get(url: str, token: str) -> bytes:
@@ -65,7 +103,7 @@ def pick_artifact(repo: str, token: str, wanted_id: str) -> dict:
 
 def main() -> None:
     out = sys.argv[1] if len(sys.argv) > 1 else "base"
-    repo = os.environ.get("GITHUB_REPOSITORY") or sys.exit("GITHUB_REPOSITORY is not set")
+    repo = os.environ.get("GITHUB_REPOSITORY") or "zhao20100913/nura-SM-C7000"
     token = os.environ.get("GITHUB_TOKEN") or sys.exit("GITHUB_TOKEN is not set")
     wanted = os.environ.get("BASE_ARTIFACT_ID", "").strip()
 
@@ -75,13 +113,20 @@ def main() -> None:
         % (art["name"], art["id"], art["size_in_bytes"] / 1048576, art["created_at"])
     )
 
-    blob = api_get(
-        "%s/repos/%s/actions/artifacts/%s/zip" % (API, repo, art["id"]), token
-    )
-    print("downloaded %.1f MiB" % (len(blob) / 1048576))
-
     os.makedirs(out, exist_ok=True)
-    with zipfile.ZipFile(io.BytesIO(blob)) as zf:
+    fd, zpath = tempfile.mkstemp(prefix="artifact-", suffix=".zip", dir=out)
+    os.close(fd)
+    try:
+        download("%s/repos/%s/actions/artifacts/%s/zip" % (API, repo, art["id"]),
+                 token, zpath)
+        print("downloaded %.1f MiB" % (os.path.getsize(zpath) / 1048576))
+        _unpack(zpath, out, art)
+    finally:
+        os.unlink(zpath)
+
+
+def _unpack(zpath: str, out: str, art: dict) -> None:
+    with zipfile.ZipFile(zpath) as zf:
         names = zf.namelist()
         print("artifact entries: %s" % ", ".join(names))
         boot = [n for n in names if os.path.basename(n) == "boot.img"]
