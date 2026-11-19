@@ -1,0 +1,14 @@
+[Unit]
+Description=Expose firmware from the Android partitions (qcom msm-firmware-loader)
+Documentation=https://github.com/linux-msm/msm-firmware-loader
+After=local-fs.target systemd-udevd.service
+Before=NetworkManager.service c7-wifi.service bluetooth.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/msm-firmware-loader.sh
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target

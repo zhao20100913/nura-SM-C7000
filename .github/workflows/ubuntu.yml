@@ -1,0 +1,168 @@
+name: Build Ubuntu 24.04 (Phosh) for SM-C7000
+
+# Builds a Ubuntu 24.04 LTS (noble) + Phosh flash package for the Samsung
+# Galaxy C7 SM-C7000 (c7lte, MSM8953).  No LK2nd: the kernel, initramfs and
+# QCDT device tree come from this repository's own "Build Nura for SM-C7000"
+# workflow (see ubuntu/README.md), the user space is a debootstrap'd Ubuntu
+# root filesystem.
+#
+# Outputs (artifact "ubuntu-c7-<run>"):
+#   ubuntu-boot.img           Android boot v0 image, QCDT + SEANDROIDENFORCE,
+#                             cmdline patched to the root filesystem UUID
+#   ubuntu-c7lte-root.img     ext4 image for the USERDATA partition
+#   SHA256SUMS, verify.log, SOURCE_ARTIFACT.json
+#
+# Flash with heimdall (see ubuntu/README.md):
+#   heimdall flash --BOOT ubuntu-boot.img --USERDATA ubuntu-c7lte-root.img
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_source:
+        description: "Where the kernel/initramfs come from"
+        type: choice
+        options:
+          - artifact
+          - source
+        default: artifact
+      base_artifact_id:
+        description: "pmOS artifact id (empty = newest nura-c7-* artifact)"
+        required: false
+        default: ""
+      rootfs_size_gb:
+        description: "Initial ext4 image size in GiB (grown to fill USERDATA on first boot)"
+        required: false
+        default: "3"
+  push:
+    branches: [ main ]
+    paths:
+      - "ubuntu/**"
+      - "scripts/patch-bootimg-cmdline.py"
+      - ".github/workflows/ubuntu.yml"
+
+concurrency:
+  group: ubuntu-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    name: Ubuntu rootfs + boot image (aarch64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    env:
+      BASE_ARTIFACT_ID: ${{ inputs.base_artifact_id }}
+      ROOTFS_SIZE_GB: ${{ inputs.rootfs_size_gb || '3' }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost /opt/hostedtoolcache/CodeQL \
+                      /usr/local/share/powershell /usr/share/swift || true
+          df -h /
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-user-static binfmt-support debootstrap \
+            e2fsprogs rsync python3 zstd xz-utils curl unzip
+
+      - name: Enable arm64 emulation
+        run: |
+          sudo update-binfmts --enable qemu-aarch64 || true
+          ls -l /proc/sys/fs/binfmt_misc/qemu-aarch64
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+
+      # ----------------------------------------------------------------- base
+      - name: Fetch boot.img + root.img from the Nura CI artifact
+        if: inputs.base_source != 'source'
+        run: python3 ubuntu/fetch-base.py base
+
+      - name: Build boot.img + root.img with pmbootstrap (fallback)
+        if: inputs.base_source == 'source'
+        run: ./ubuntu/build-base.sh base
+
+      - name: Extract kernel modules, firmware and the firmware loader
+        run: |
+          sudo chmod -R a+rX base
+          sudo ./ubuntu/extract-base.sh base base-extract
+          sudo chown -R "$USER" base-extract
+
+      # --------------------------------------------------------------- rootfs
+      - name: Build the Ubuntu root filesystem
+        run: |
+          sudo ./ubuntu/build-rootfs.sh rootfs base-extract | tee rootfs.log
+
+      - name: Create the ext4 root image
+        run: |
+          mkdir -p out
+          sudo ./ubuntu/make-image.sh rootfs "out/ubuntu-c7lte-root.img" "$ROOTFS_SIZE_GB"
+          sudo chown "$USER" out/*
+
+      # ---------------------------------------------------------------- image
+      - name: Patch the boot image for the Ubuntu root filesystem
+        run: |
+          python3 scripts/patch-bootimg-cmdline.py \
+            --input base/boot.img \
+            --output out/ubuntu-boot.img \
+            --root-uuid "$(cat out/ubuntu-c7lte-root.img.uuid)" \
+            --drop lk2nd.pass-ramoops
+
+      - name: Verify the flash package
+        run: |
+          python3 ubuntu/verify.py out/ubuntu-boot.img out/ubuntu-c7lte-root.img \
+            out/ubuntu-c7lte-root.img.uuid | tee out/verify.log
+          cp base/SOURCE_ARTIFACT.json out/ || true
+
+      - name: Checksums and sizes
+        run: |
+          cd out
+          sha256sum ubuntu-boot.img ubuntu-c7lte-root.img > SHA256SUMS
+          cat SHA256SUMS
+          ls -lh
+        # The build log of the pmbootstrap fallback is useful, keep it small.
+      - name: Collect logs
+        if: always()
+        run: |
+          mkdir -p out
+          [ -f rootfs.log ] && cp rootfs.log out/ || true
+
+      - name: Upload the flash package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ubuntu-c7-${{ github.run_number }}
+          path: out/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Ubuntu 24.04 (Phosh) for SM-C7000"
+            echo
+            echo "| file | size | sha256 |"
+            echo "| --- | --- | --- |"
+            [ -f out/SHA256SUMS ] && while read -r sum name; do
+              size=$(du -h "out/$name" | cut -f1)
+              echo "| \`$name\` | $size | \`$sum\` |"
+            done < out/SHA256SUMS
+            echo
+            echo "Flash with heimdall:"
+            echo '```'
+            echo "heimdall flash --BOOT ubuntu-boot.img --USERDATA ubuntu-c7lte-root.img"
+            echo '```'
+            echo
+            echo "First boot: user \`c7\`, password \`147147\`; ssh over USB at 172.16.42.1."
+          } >> "$GITHUB_STEP_SUMMARY"

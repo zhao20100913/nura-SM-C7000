@@ -1,0 +1,100 @@
+# Packages installed into the Ubuntu 24.04 (noble) arm64 root filesystem.
+# One package per line; comments and blank lines are ignored.  Everything is
+# installed with --no-install-recommends, so things that are actually wanted
+# from a "Recommends:" line have to be listed here explicitly.
+#
+# Base system ---------------------------------------------------------------
+systemd
+systemd-sysv
+systemd-timesyncd
+dbus
+dbus-user-session
+kmod
+udev
+locales
+tzdata
+console-setup
+keyboard-configuration
+ca-certificates
+gnupg
+sudo
+openssh-server
+
+# Networking ----------------------------------------------------------------
+network-manager
+wpasupplicant
+rfkill
+iw
+bluez
+wireless-regdb
+dnsmasq-base
+iproute2
+iputils-ping
+dnsutils
+net-tools
+traceroute
+tcpdump
+curl
+wget
+usbutils
+pciutils
+modemmanager
+
+# Phosh desktop -------------------------------------------------------------
+phosh
+phoc
+phosh-core
+phosh-osk-stub
+phosh-mobile-settings
+phosh-mobile-tweaks
+phosh-plugins
+feedbackd
+gnome-console
+gnome-settings-daemon
+gnome-keyring
+gnome-backgrounds
+dconf-gsettings-backend
+xdg-desktop-portal
+xdg-desktop-portal-gtk
+xdg-desktop-portal-wlr
+pipewire
+pipewire-pulse
+wireplumber
+alsa-ucm-conf
+libgl1-mesa-dri
+mesa-utils
+xwayland
+
+# Fonts and input methods ---------------------------------------------------
+fonts-noto-cjk
+fonts-noto-core
+fonts-noto-color-emoji
+fonts-dejavu-core
+fontconfig
+ibus
+ibus-libpinyin
+ibus-gtk3
+
+# Command line tools --------------------------------------------------------
+vim-tiny
+nano
+less
+htop
+tmux
+file
+unzip
+zip
+xz-utils
+zstd
+rsync
+git
+jq
+strace
+lsof
+tree
+parted
+e2fsprogs
+dosfstools
+i2c-tools
+evtest
+zram-tools

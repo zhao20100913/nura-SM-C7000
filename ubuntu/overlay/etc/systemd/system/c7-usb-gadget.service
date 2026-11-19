@@ -1,0 +1,12 @@
+[Unit]
+Description=Add an ACM serial interface to the postmarketOS USB gadget
+After=sys-kernel-config.mount
+Before=serial-getty@ttyGS0.service NetworkManager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/c7-usb-gadget.sh
+
+[Install]
+WantedBy=multi-user.target

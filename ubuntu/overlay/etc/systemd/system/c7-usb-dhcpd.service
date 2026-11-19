@@ -1,0 +1,17 @@
+[Unit]
+Description=DHCP server for the USB gadget network (172.16.42.0/24)
+Wants=network-pre.target
+After=NetworkManager.service sys-subsystem-net-devices-usb0.device
+BindsTo=sys-subsystem-net-devices-usb0.device
+
+[Service]
+ExecStart=/usr/sbin/dnsmasq --keep-in-foreground --bind-interfaces --interface=usb0 \
+	--dhcp-range=172.16.42.20,172.16.42.30,12h \
+	--dhcp-option=3 \
+	--dhcp-option=6,223.5.5.5,1.1.1.1 \
+	--port=0 --no-resolv --no-hosts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
