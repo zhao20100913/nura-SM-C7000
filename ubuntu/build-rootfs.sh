@@ -135,7 +135,9 @@ log "creating user $USERNAME"
 for grp in sudo adm video audio input plugdev netdev dialout; do
 	in_root groupadd -f "$grp"
 done
-in_root useradd -m -s /bin/bash -G sudo,adm,video,audio,input,plugdev,netdev,dialout "$USERNAME"
+if ! in_root id -u "$USERNAME" >/dev/null 2>&1; then
+	in_root useradd -m -s /bin/bash -G sudo,adm,video,audio,input,plugdev,netdev,dialout "$USERNAME"
+fi
 printf '%s:%s\n' "$USERNAME" "$PASSWORD" | in_root chpasswd
 # root login is only possible through sudo (no root password)
 in_root passwd -l root || true

@@ -33,9 +33,18 @@ tmpfs                                      /tmp           tmpfs   nosuid,nodev,m
 EOF
 cat "$ROOT/etc/fstab"
 
-echo "==> creating ${SIZE_GB}G ext4 image"
+# Size the filesystem just above the payload: resize2fs -M can only give back
+# the blocks after the last allocated one, so a 3 GiB image with 1.7 GiB of
+# files stays at 3 GiB.  The initramfs grows everything to USERDATA anyway.
+DATA_MB=$(du -sm --apparent-size "$ROOT" | cut -f1)
+NEED_MB=$(( DATA_MB + DATA_MB / 10 + 400 ))
+REQ_MB=$(( SIZE_GB * 1024 ))
+IMG_MB=$NEED_MB
+[ "$IMG_MB" -gt "$REQ_MB" ] && IMG_MB=$REQ_MB
+[ "$IMG_MB" -lt 1024 ] && IMG_MB=1024
+echo "==> creating ${IMG_MB}M ext4 image (payload ${DATA_MB}M, limit ${REQ_MB}M)"
 rm -f "$OUT"
-truncate -s "${SIZE_GB}G" "$OUT"
+truncate -s "${IMG_MB}M" "$OUT"
 mkfs.ext4 -q -F -L "$LABEL" -U "$UUID" -m 0 -E root_owner=0:0 "$OUT"
 
 MNT=$(mktemp -d)
@@ -57,10 +66,15 @@ e2fsck -fy "$OUT" >/dev/null
 tune2fs -c 0 -i 0 -L "$LABEL" -U "$UUID" "$OUT" >/dev/null
 
 echo "==> shrinking to the minimum size"
-if resize2fs -M "$OUT">/dev/null 2>&1; then
+if resize2fs -M "$OUT" >/dev/null 2>&1; then
 	e2fsck -fy "$OUT" >/dev/null
+	BLOCKS=$(dumpe2fs -h "$OUT" 2>/dev/null | awk '/^Block count:/{print $3}')
+	BSIZE=$(dumpe2fs -h "$OUT" 2>/dev/null | awk '/^Block size:/{print $3}')
+	if [ -n "$BLOCKS" ] && [ -n "$BSIZE" ]; then
+		truncate -s $(( BLOCKS * BSIZE )) "$OUT"
+	fi
 else
-	echo "warning: could not shrink the image, keeping ${SIZE_GB}G" >&2
+	echo "warning: could not shrink the image, keeping ${IMG_MB}M" >&2
 fi
 
 printf '%s\n' "$UUID" > "${OUT}.uuid"

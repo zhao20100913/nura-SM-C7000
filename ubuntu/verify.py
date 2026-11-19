@@ -40,9 +40,14 @@ def check_bootimg(path, root_uuid):
     page = struct.unpack_from("<I", data, OFF["page_size"])[0]
     check(page == 2048, "page size is 2048 (got %d)" % page)
     hdr = {k: struct.unpack_from("<I", data, v)[0] for k, v in OFF.items()}
-    check(hdr["kernel_addr"] == 0x8000, "kernel load address 0x8000")
-    check(hdr["ramdisk_addr"] == 0x01000000, "ramdisk load address 0x01000000")
-    check(hdr["tags_addr"] == 0x0100, "tags address 0x0100")
+    # mkbootimg -base 0x80000000 writes absolute addresses; docs/03-flashing.md
+    # talks about the 0x8000 / 0x01000000 / 0x0100 offsets, so compare both.
+    base = hdr["kernel_addr"] - 0x8000
+    check(base == 0x80000000, "kernel load address is base+0x8000 (got 0x%08x)" % hdr["kernel_addr"])
+    check(hdr["ramdisk_addr"] - base == 0x01000000,
+          "ramdisk load address is base+0x01000000 (got 0x%08x)" % hdr["ramdisk_addr"])
+    check(hdr["tags_addr"] - base == 0x0100,
+          "tags address is base+0x0100 (got 0x%08x)" % hdr["tags_addr"])
     check(hdr["second_size"] == 0, "no second stage")
 
     kstart = page
@@ -60,8 +65,26 @@ def check_bootimg(path, root_uuid):
     check(hdr["dt_size"] > 0, "dt area present (%d bytes)" % hdr["dt_size"])
     if hdr["dt_size"] > 0:
         check(data[dstart:dstart + 4] == b"QCDT", "dt area is a QCDT table (not an appended dtb)")
-        entries = struct.unpack_from(">I", data, dstart + 8)[0]
+        entries = struct.unpack_from("<I", data, dstart + 8)[0]
         print("       QCDT entries: %d" % entries)
+        # QCDT v2 entry: soc_id, variant_id, subtype, pad, offset, size (24 bytes)
+        ok = entries > 0
+        subtypes = []
+        for i in range(entries):
+            entry_at = dstart + 12 + i * 24
+            if entry_at + 24 > len(data):
+                ok = False
+                break
+            soc, variant, subtype, _pad, off, size = struct.unpack_from("<6I", data, entry_at)
+            subtypes.append(subtype)
+            print("       entry %d: soc 0x%x variant 0x%x subtype %d offset 0x%x size 0x%x"
+                  % (i, soc, variant, subtype, off, size))
+            if soc != 0x125 or variant != 0x8:
+                ok = False
+            if off < 12 + 24 * entries or off + size > hdr["dt_size"]:
+                ok = False
+        check(ok, "QCDT entries are msm8953/board 8 and point inside the dt area")
+        check(sorted(subtypes) == [0, 3, 4], "QCDT subtypes are 0, 3 and 4 (got %s)" % subtypes)
     check(data[-len(SEANDROIDENFORCE):] == SEANDROIDENFORCE, "SEANDROIDENFORCE trailer")
 
     cmdline = data[64:64 + 512].split(b"\0", 1)[0].decode()
