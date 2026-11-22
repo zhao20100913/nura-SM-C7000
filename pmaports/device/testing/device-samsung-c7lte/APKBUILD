@@ -2,7 +2,7 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=device-samsung-c7lte
 pkgver=0.1
-pkgrel=11
+pkgrel=12
 pkgdesc="Samsung Galaxy C7 (SM-C7000)"
 url="https://gitlab.nura.eco/nura/pmaports"
 arch="aarch64"
@@ -39,7 +39,7 @@ build() {
 }
 
 package() {
-	install -Dm755 "$srcdir"/c7-diag "$pkgdir"/usr/local/bin/c7-diag
+	install -Dm755 "$srcdir"/c7-diag "$pkgdir"/usr/bin/c7-diag
 	devicepkg_package "$startdir" "$pkgname"
 
 	# The WLAN NV calibration blob is not on any partition: Samsung keeps it
