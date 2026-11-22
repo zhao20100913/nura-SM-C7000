@@ -1,12 +1,13 @@
 # Maintainer: nura-c7 <nura-c7@users.noreply.github.com>
 pkgname=c7-pwrkey
 pkgver=0.1
-pkgrel=0
+pkgrel=1
 pkgdesc="Power button blanks the display on the Samsung Galaxy C7 (phosh)"
 url="https://github.com/zhao20100913/nura-SM-C7000"
 arch="aarch64"
 license="GPL-2.0-only"
 depends="wlr-randr"
+makedepends="linux-headers"
 source="c7-pwrkey.c
 	c7-pwrkey.initd"
 sha512sums="
