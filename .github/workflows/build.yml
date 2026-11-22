@@ -208,6 +208,9 @@ jobs:
             echo "using verified tarball from the distfiles cache"
             exit 0
           fi
+          # A tarball from the api.github.com endpoint has different bytes;
+          # drop whatever is cached so the save step cannot keep it forever.
+          sudo rm -f "$DIST/$NAME"
 
           for i in $(seq 1 10); do
             for URL in \
