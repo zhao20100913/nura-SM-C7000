@@ -100,7 +100,25 @@ jobs:
 
       - name: Get pmbootstrap
         run: |
-          git clone --depth=1 https://gitlab.nura.eco/nura/pmbootstrap.git
+          # Same problem as pmaports: the Nura GitLab now demands credentials
+          # for anonymous clones.  Fall back to the canonical upstream, pinned
+          # to the v3.12.1 tag this port has been built with.
+          export GIT_TERMINAL_PROMPT=0
+          for spec in \
+            "https://gitlab.nura.eco/nura/pmbootstrap.git|" \
+            "https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git|v3.12.1" \
+            "https://gitlab.postmarketos.org/postmarketOS/pmbootstrap.git|"; do
+            url="${spec%%|*}"
+            ref="${spec##*|}"
+            rm -rf pmbootstrap
+            if [ -n "$ref" ]; then
+              git clone --depth=1 --branch "$ref" "$url" pmbootstrap && { echo "cloned $url ($ref)"; break; }
+            else
+              git clone --depth=1 "$url" pmbootstrap && { echo "cloned $url"; break; }
+            fi
+            echo "clone failed: $url $ref"
+          done
+          test -f pmbootstrap/pmbootstrap.py
           sudo ln -sf "$PWD/pmbootstrap/pmbootstrap.py" /usr/local/bin/pmbootstrap
           pmbootstrap --version
 
