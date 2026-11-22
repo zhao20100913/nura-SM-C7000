@@ -109,8 +109,22 @@ jobs:
           PMAPORTS_REF: ${{ github.event.inputs.pmaports_ref || 'main' }}
         run: |
           mkdir -p "$(dirname "$PMAPORTS")"
-          git clone --depth=1 --branch "$PMAPORTS_REF" \
-            https://gitlab.nura.eco/nura/pmaports.git "$PMAPORTS"
+          # The Nura mirror has started asking for credentials for anonymous
+          # clones.  Try it first (it is the fork this port targets) but fall
+          # back to the canonical upstream so a mirror hiccup cannot stop the
+          # build.
+          export GIT_TERMINAL_PROMPT=0
+          for url in \
+            "https://gitlab.nura.eco/nura/pmaports.git" \
+            "https://gitlab.postmarketos.org/postmarketOS/pmaports.git"; do
+            rm -rf "$PMAPORTS"
+            if git clone --depth=1 --branch "$PMAPORTS_REF" "$url" "$PMAPORTS"; then
+              echo "cloned $url"
+              break
+            fi
+            echo "clone failed: $url"
+          done
+          test -d "$PMAPORTS/.git"
           # Our device/kernel packages are copied over the pristine clone:
           # they live in this repo, not upstream. I never commit to the clone.
           cp -a pmaports/. "$PMAPORTS"/
