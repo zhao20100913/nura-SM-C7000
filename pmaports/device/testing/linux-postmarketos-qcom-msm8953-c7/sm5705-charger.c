@@ -55,6 +55,11 @@
 /* CHGCNTL4[6] = automatic stop, [5:0] = float voltage */
 #define SM5705_CHGCNTL4_AUTOSTOP	BIT(6)
 
+/* The chip has interrupt mask registers we do not know how to program, so a
+ * slow poll keeps VBUS detection working even when no IRQ ever arrives.
+ */
+#define SM5705_POLL_MS			5000
+
 struct sm5705_charger {
 	struct device *dev;
 	struct regmap *regmap;
@@ -183,6 +188,7 @@ static void sm5705_work(struct work_struct *work)
 	struct sm5705_charger *chg =
 		container_of(work, struct sm5705_charger, work.work);
 	bool was_vbus = chg->vbus;
+	bool was_charging = chg->charging;
 
 	sm5705_update_state(chg);
 
@@ -190,7 +196,11 @@ static void sm5705_work(struct work_struct *work)
 		sm5705_configure(chg);
 		sm5705_dump_regs(chg, chg->vbus ? "VBUS on" : "VBUS off");
 		power_supply_changed(chg->psy);
+	} else if (was_charging != chg->charging) {
+		power_supply_changed(chg->psy);
 	}
+
+	schedule_delayed_work(&chg->work, msecs_to_jiffies(SM5705_POLL_MS));
 }
 
 static irqreturn_t sm5705_irq(int irq, void *data)
@@ -321,6 +331,8 @@ static int sm5705_probe(struct i2c_client *client)
 	}
 
 	i2c_set_clientdata(client, chg);
+
+	schedule_delayed_work(&chg->work, msecs_to_jiffies(SM5705_POLL_MS));
 
 	return 0;
 }
