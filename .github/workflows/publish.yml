@@ -1,0 +1,81 @@
+name: Publish image assets
+
+# Download a build artifact inside Actions (fast, github-internal) and attach
+# its images to a release.  Doing this in the runner avoids pulling ~1 GB of
+# artifact through the phone's mobile network, which kept timing out.
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_id:
+        description: "artifact id that contains the images"
+        required: true
+      tag:
+        description: "release tag to publish to (created if missing)"
+        required: true
+      title:
+        description: "release title used when creating the tag"
+        required: false
+        default: ""
+      boot_name:
+        description: "asset name for the boot image"
+        required: false
+        default: "boot.img"
+      gzip_root:
+        description: "gzip the rootfs image (GitHub caps assets at 2 GB)"
+        required: false
+        default: "true"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Download artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AID: ${{ inputs.artifact_id }}
+          BOOT_NAME: ${{ inputs.boot_name }}
+          GZIP_ROOT: ${{ inputs.gzip_root }}
+        run: |
+          set -eu
+          gh api "/repos/${{ github.repository }}/actions/artifacts/$AID/zip" > a.zip
+          mkdir -p art out
+          unzip -o -q a.zip -d art
+          ls -l art || true
+          BOOT=$(find art -name boot.img -type f | head -1)
+          ROOT=$(find art -name 'samsung-c7lte-root.img' -type f | head -1)
+          test -n "$BOOT"
+          cp "$BOOT" "out/$BOOT_NAME"
+          if [ -n "$ROOT" ]; then
+            if [ "$GZIP_ROOT" = "true" ]; then
+              gzip -1 -c "$ROOT" > "out/$(basename "$ROOT").gz"
+            else
+              cp "$ROOT" out/
+            fi
+          fi
+          find out -maxdepth 1 -type f -printf '%f %s\n'
+
+      - name: Checksums
+        run: |
+          cd out && sha256sum * > SHA256SUMS && cat SHA256SUMS
+
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          TITLE: ${{ inputs.title }}
+        run: |
+          set -eu
+          if [ -z "${TITLE:-}" ]; then TITLE="$TAG"; fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TITLE" --prerelease \
+              --notes "Nura for the Samsung Galaxy C7 (SM-C7000)."
+          fi
+          gh release upload "$TAG" out/* --clobber
+          gh release view "$TAG" --json tagName,assets \
+            --jq '.assets[] | "\(.name) \(.size)"'
