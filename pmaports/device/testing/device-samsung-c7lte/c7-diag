@@ -1,0 +1,69 @@
+#!/bin/sh
+# c7-diag - collect the evidence needed to debug C7 hardware without internet.
+#
+# Run as root:  sudo c7-diag
+# Everything is printed and also saved to /tmp/c7-diag.txt so it can be
+# copied off the phone over USB (scp user@172.16.42.1:/tmp/c7-diag.txt .).
+#
+# Note: i2cdetect probes every address on every bus.  The bus that carries
+# the charger/MUIC (i2c-8) is scanned too; that is safe on this board as all
+# addresses on it are already bound, but do not run it in a loop.
+
+out=${1:-/tmp/c7-diag.txt}
+
+{
+	echo "== system"
+	uname -a
+	cat /proc/device-tree/model 2>/dev/null; echo
+
+	echo "== power supplies"
+	for p in /sys/class/power_supply/*; do
+		[ -d "$p" ] || continue
+		echo "-- ${p##*/}"
+		cat "$p/uevent" 2>/dev/null
+	done
+
+	echo "== charger dmesg"
+	dmesg | grep -iE "sm5705|VBUS" | tail -40
+
+	echo "== wcn36xx dmesg"
+	dmesg | grep -iE "wcn36|wlan|remoteproc" | tail -40
+
+	echo "== input devices"
+	grep -B1 -A4 -iE "pwrkey|Melfas" /proc/bus/input/devices
+
+	echo "== c7-pwrkey service"
+	rc-service c7-pwrkey status 2>&1
+	ls -l /run/c7-pwrkey.off 2>/dev/null
+
+	echo "== wayland outputs"
+	su user -c 'XDG_RUNTIME_DIR=/run/user/1000 wlr-randr' 2>&1 | head -30
+
+	echo "== i2c buses"
+	for d in /sys/bus/i2c/devices/i2c-*; do
+		[ -d "$d" ] || continue
+		b=${d##*-}
+		echo "-- i2c-$b $(cat "$d/name" 2>/dev/null)"
+		i2cdetect -y -r "$b" 2>/dev/null | sed -n '2,9p'
+	done
+
+	echo "== networkmanager wlan0"
+	nmcli -f GENERAL,IP4,WIFI dev show wlan0 2>&1 | head -40
+
+	echo "== networkmanager connections"
+	nmcli -f NAME,UUID,TYPE,DEVICE con show 2>&1
+
+	echo "== iw link"
+	iw dev wlan0 link 2>&1
+
+	echo "== iw station"
+	iw dev wlan0 station dump 2>&1 | head -25
+
+	echo "== wpa_supplicant log"
+	{ logread 2>/dev/null; cat /var/log/messages 2>/dev/null; } |
+		grep -iE "wpa|EAPOL|4-Way|CTRL-EVENT" | tail -40
+
+	echo "== end"
+} >"$out" 2>&1
+
+cat "$out"

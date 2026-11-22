@@ -37,6 +37,7 @@
 #define SM5705_REG_CHGCNTL2	0x10
 #define SM5705_REG_CHGCNTL3	0x11
 #define SM5705_REG_CHGCNTL4	0x12
+#define SM5705_REG_CHGCNTL8	0x16
 #define SM5705_REG_DEVICEID	0x37
 
 /* CNTL[2:0]: charger operation mode */
@@ -54,6 +55,9 @@
 
 /* CHGCNTL4[6] = automatic stop, [5:0] = float voltage */
 #define SM5705_CHGCNTL4_AUTOSTOP	BIT(6)
+
+/* CHGCNTL8[7] reloads the charge watchdog timer */
+#define SM5705_CHGCNTL8_WDT_RST		BIT(7)
 
 /* The chip has interrupt mask registers we do not know how to program, so a
  * slow poll keeps VBUS detection working even when no IRQ ever arrives.
@@ -191,6 +195,16 @@ static void sm5705_work(struct work_struct *work)
 	bool was_charging = chg->charging;
 
 	sm5705_update_state(chg);
+
+	/* The chip's watchdog clears CHGON on its own after a while; re-assert
+	 * the charge-on mode and reload the timer on every poll while VBUS is
+	 * present, otherwise the phone silently stops charging.
+	 */
+	if (chg->vbus && enable_charging) {
+		sm5705_write(chg, SM5705_REG_CHGCNTL8, SM5705_CHGCNTL8_WDT_RST);
+		if (!chg->charging)
+			sm5705_write(chg, SM5705_REG_CNTL, SM5705_OP_MODE_CHG_ON);
+	}
 
 	if (was_vbus != chg->vbus) {
 		sm5705_configure(chg);
