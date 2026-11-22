@@ -2,7 +2,7 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=device-samsung-c7lte
 pkgver=0.1
-pkgrel=8
+pkgrel=9
 pkgdesc="Samsung Galaxy C7 (SM-C7000)"
 url="https://gitlab.nura.eco/nura/pmaports"
 arch="aarch64"
@@ -26,6 +26,7 @@ source="
 	WCNSS_qcom_wlan_nv.bin
 	10-wcnss.start
 	10-c7-power.conf
+	10-wcn36xx.conf
 "
 
 build() {
@@ -50,6 +51,10 @@ package() {
 	# looks exactly like a spontaneous reboot on this phone.
 	install -Dm644 "$startdir"/10-c7-power.conf \
 		"$pkgdir"/etc/elogind/logind.conf.d/10-c7-power.conf
+
+	# wcn36xx + power save breaks the 4-way handshake on this WCN3680.
+	install -Dm644 "$startdir"/10-wcn36xx.conf \
+		"$pkgdir"/etc/NetworkManager/conf.d/10-wcn36xx.conf
 }
 
 sha512sums="\
