@@ -3,7 +3,7 @@
 maintainer="Bart Ribbers <bribbers@disroot.org>"
 pkgname=postmarketos-ui-plasma-mobile
 pkgver=6
-pkgrel=13
+pkgrel=14
 pkgdesc="(Wayland) Mobile variant of KDE Plasma"
 url="https://wiki.postmarketos.org/wiki/Plasma_Mobile"
 # armhf blocked by pmaports#75
@@ -52,7 +52,7 @@ install="
 	$pkgname-systemd.post-upgrade
 	"
 replaces="plasma-mobile plasma-mobile-meta"
-options="!check pmb:drm pmb:support-openrc pmb:support-systemd"
+options="!check pmb:drm pmb:default-systemd pmb:support-openrc pmb:support-systemd"
 
 package() {
 	install -Dm644 \
