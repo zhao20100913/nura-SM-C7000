@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build a Ubuntu 24.04 LTS (noble) arm64 root filesystem for the Samsung
+# Build a Ubuntu 26.04 LTS (resolute) arm64 root filesystem for the Samsung
 # Galaxy C7 (SM-C7000 / c7lte) out of a debootstrap chroot.
 #
 # The kernel, initramfs and device tree stay untouched: they come from the
@@ -18,7 +18,7 @@ PKG_LIST=${3:-$HERE/packages.txt}
 ROOT=$(readlink -m "$ROOT")
 BASE=$(readlink -m "$BASE")
 MIRROR=${MIRROR:-http://ports.ubuntu.com/ubuntu-ports}
-RELEASE=${RELEASE:-noble}
+RELEASE=${RELEASE:-resolute}
 QEMU=${QEMU:-/usr/bin/qemu-aarch64-static}
 USERNAME=${USERNAME:-c7}
 PASSWORD=${PASSWORD:-147147}
@@ -26,6 +26,16 @@ PASSWORD=${PASSWORD:-147147}
 log() { printf '\n==> %s\n' "$*"; }
 
 [ -x "$QEMU" ] || { echo "$QEMU not found (install qemu-user-static)" >&2; exit 1; }
+
+# debootstrap 1.0.134 (the version in noble and on the runners) predates
+# 26.04 and has no per-suite script for it.  These scripts are generic -- the
+# suite name is only used for the mirror lookup and a couple of legacy checks
+# -- so the noble one works unchanged for resolute.
+DBSCRIPTS=/usr/share/debootstrap/scripts
+if [ ! -f "$DBSCRIPTS/$RELEASE" ] && [ -f "$DBSCRIPTS/noble" ]; then
+	if [ "$(id -u)" -ne 0 ]; then SUDO=sudo; else SUDO=; fi
+	$SUDO install -m 0644 "$DBSCRIPTS/noble" "$DBSCRIPTS/$RELEASE"
+fi
 
 cleanup() {
 	for d in dev/pts dev/shm dev proc sys; do

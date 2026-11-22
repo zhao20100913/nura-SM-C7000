@@ -1,4 +1,4 @@
-# Packages installed into the Ubuntu 24.04 (noble) arm64 root filesystem.
+# Packages installed into the Ubuntu 26.04 (resolute) arm64 root filesystem.
 # One package per line; comments and blank lines are ignored.  Everything is
 # installed with --no-install-recommends, so things that are actually wanted
 # from a "Recommends:" line have to be listed here explicitly.
@@ -30,7 +30,7 @@ wireless-regdb
 dnsmasq-base
 iproute2
 iputils-ping
-dnsutils
+bind9-dnsutils
 net-tools
 traceroute
 tcpdump
@@ -44,7 +44,7 @@ modemmanager
 phosh
 phoc
 phosh-core
-phosh-osk-stub
+phosh-osk-stevia
 phosh-mobile-settings
 phosh-mobile-tweaks
 phosh-plugins

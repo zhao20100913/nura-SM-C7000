@@ -1,6 +1,6 @@
-name: Build Ubuntu 24.04 (Phosh) for SM-C7000
+name: Build Ubuntu 26.04 (Phosh) for SM-C7000
 
-# Builds a Ubuntu 24.04 LTS (noble) + Phosh flash package for the Samsung
+# Builds a Ubuntu 26.04 LTS (resolute) + Phosh flash package for the Samsung
 # Galaxy C7 SM-C7000 (c7lte, MSM8953).  No LK2nd: the kernel, initramfs and
 # QCDT device tree come from this repository's own "Build Nura for SM-C7000"
 # workflow (see ubuntu/README.md), the user space is a debootstrap'd Ubuntu

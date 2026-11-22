@@ -1,6 +1,6 @@
-# Ubuntu 24.04 (Phosh) for the Samsung Galaxy C7 SM-C7000
+# Ubuntu 26.04 (Phosh) for the Samsung Galaxy C7 SM-C7000
 
-给三星 Galaxy C7（SM-C7000 / c7lte / MSM8953）的 **Ubuntu 24.04 LTS（noble）+ Phosh 触屏桌面** 刷机包。
+给三星 Galaxy C7（SM-C7000 / c7lte / MSM8953）的 **Ubuntu 26.04 LTS（resolute）+ Phosh 触屏桌面** 刷机包。
 
 **不用 LK2nd。** 这不是把 Android 刷机包换个内核，而是：
 
@@ -8,14 +8,14 @@
 | --- | --- | --- |
 | boot.img | 本仓库 `Build Nura for SM-C7000` 的 CI 产物（约 24 MB） | Android boot v0 头、QCDT 设备树表、`SEANDROIDENFORCE` 尾巴、postmarketOS initramfs（负责找根、扩容、switch_root） |
 | 内核 | 同上，`linux-postmarketos-qcom-msm8953-c7` 7.1.3 | msm DRM（S6E3FA3 面板）、MMS449 触摸、WCN36xx WiFi、a530 GPU 都是主线驱动 |
-| root.img | 本工作流用 debootstrap + qemu 现场生成 | Ubuntu noble arm64、systemd、Phosh 0.38、中文环境、Asia/Shanghai、ssh、NetworkManager |
+| root.img | 本工作流用 debootstrap + qemu 现场生成 | Ubuntu resolute arm64、systemd、Phosh 0.54、中文环境、Asia/Shanghai、ssh、NetworkManager |
 | 启动会话 | `ubuntu/overlay/` | tty1 自动登录 `c7` 后跑 `phosh-session`，串口 `ttyMSM0`/`ttyGS0` 也是自动登录的 shell |
 
 启动链：C7 的 bootloader → boot.img 里的 pmOS initramfs → 用 `pmos_root_uuid` 找 USERDATA 上的 ext4 → 把分区和文件系统扩到整块 USERDATA → `switch_root /sbin/init`（systemd）→ Phosh。
 
 ## 产物
 
-工作流 `Build Ubuntu 24.04 (Phosh) for SM-C7000`（`.github/workflows/ubuntu.yml`）产出一个 artifact `ubuntu-c7-<run>`：
+工作流 `Build Ubuntu 26.04 (Phosh) for SM-C7000`（`.github/workflows/ubuntu.yml`）产出一个 artifact `ubuntu-c7-<run>`：
 
 | 文件 | 用途 |
 | --- | --- |
@@ -27,7 +27,7 @@
 
 ## 怎么跑
 
-Actions → **Build Ubuntu 24.04 (Phosh) for SM-C7000** → Run workflow：
+Actions → **Build Ubuntu 26.04 (Phosh) for SM-C7000** → Run workflow：
 
 - `base_source=artifact`（默认）：直接下载本仓库最近一次成功的 `nura-c7-*` artifact 当 boot.img/root.img 底座，只做 Ubuntu rootfs + 打包，**约 40–70 分钟**。
 - `base_source=source`：底座也现场用 pmbootstrap 编（`ubuntu/build-base.sh`，等价于 `build.yml`），**再加 60–70 分钟**，用于 artifact 过期或被取消时兜底。
