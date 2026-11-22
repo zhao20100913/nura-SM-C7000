@@ -47,7 +47,9 @@ jobs:
           mkdir -p art out
           unzip -o -q a.zip -d art
           ls -l art || true
-          BOOT=$(find art -name boot.img -type f | head -1)
+          # mkboot-style artifacts already name the file boot-probe.img / boot-nolog.img
+          BOOT=$(find art -type f -name 'boot*.img' | head -1)
+          if [ -z "$BOOT" ]; then BOOT=$(find art -type f -name '*.img' | head -1); fi
           ROOT=$(find art -name 'samsung-c7lte-root.img' -type f | head -1)
           test -n "$BOOT"
           cp "$BOOT" "out/$BOOT_NAME"
