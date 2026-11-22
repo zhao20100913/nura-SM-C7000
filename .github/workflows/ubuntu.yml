@@ -96,18 +96,19 @@ jobs:
       - name: Extract kernel modules, firmware and the firmware loader
         run: |
           sudo chmod -R a+rX base
-          sudo ./ubuntu/extract-base.sh base base-extract
+          sudo bash ./ubuntu/extract-base.sh base base-extract
           sudo chown -R "$USER" base-extract
 
       # --------------------------------------------------------------- rootfs
       - name: Build the Ubuntu root filesystem
         run: |
-          sudo ./ubuntu/build-rootfs.sh rootfs base-extract | tee rootfs.log
+          set -o pipefail
+          sudo bash ./ubuntu/build-rootfs.sh rootfs base-extract | tee rootfs.log
 
       - name: Create the ext4 root image
         run: |
           mkdir -p out
-          sudo ./ubuntu/make-image.sh rootfs "out/ubuntu-c7lte-root.img" "$ROOTFS_SIZE_GB"
+          sudo bash ./ubuntu/make-image.sh rootfs "out/ubuntu-c7lte-root.img" "$ROOTFS_SIZE_GB"
           sudo chown "$USER" out/*
 
       # ---------------------------------------------------------------- image
