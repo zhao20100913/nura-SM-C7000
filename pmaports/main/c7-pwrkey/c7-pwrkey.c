@@ -49,9 +49,8 @@ static int screen_is_off(void)
 	return access(STATE_FILE, F_OK) == 0;
 }
 
-static void toggle_screen(void)
+static void toggle_screen(int was_off)
 {
-	int off = screen_is_off();
 	pid_t pid = fork();
 
 	if (pid != 0)
@@ -64,7 +63,7 @@ static void toggle_screen(void)
 		setenv("WAYLAND_DISPLAY", "wayland-0", 1);
 
 	execl("/usr/bin/wlr-randr", "wlr-randr", "--output", OUTPUT,
-	      off ? "--on" : "--off", (char *)NULL);
+	      was_off ? "--on" : "--off", (char *)NULL);
 	_exit(127);
 }
 
@@ -92,10 +91,12 @@ int main(void)
 		if (ev.type != EV_KEY || ev.code != KEY_POWER || ev.value != 1)
 			continue;
 
-		if (screen_is_off())
+		int was_off = screen_is_off();
+
+		if (was_off)
 			unlink(STATE_FILE);
-		else if (creat(STATE_FILE, 0644) >= 0)
-			;
-		toggle_screen();
+		else if (creat(STATE_FILE, 0644) < 0)
+			continue;
+		toggle_screen(was_off);
 	}
 }
