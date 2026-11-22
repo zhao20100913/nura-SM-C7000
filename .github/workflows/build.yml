@@ -20,9 +20,9 @@ on:
         required: false
         default: "main"
       ui:
-        description: "pmaports UI to install (console, phosh, ...)"
+        description: "pmaports UI to install (console, gnome, phosh, sway, ...)"
         required: false
-        default: "console"
+        default: "phosh"
   push:
     branches: [ main ]
     paths:
@@ -50,7 +50,7 @@ jobs:
       PMB_WORK: ${{ github.workspace }}/.pmb-work
       PMAPORTS: ${{ github.workspace }}/.pmb-work/cache_git/pmaports
       DEVICE: samsung-c7lte
-      UI: ${{ inputs.ui || 'console' }}
+      UI: ${{ inputs.ui || 'phosh' }}
       KPKG: linux-postmarketos-qcom-msm8953-c7
 
     steps:
