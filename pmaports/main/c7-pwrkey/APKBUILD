@@ -1,0 +1,27 @@
+# Maintainer: nura-c7 <nura-c7@users.noreply.github.com>
+pkgname=c7-pwrkey
+pkgver=0.1
+pkgrel=0
+pkgdesc="Power button blanks the display on the Samsung Galaxy C7 (phosh)"
+url="https://github.com/zhao20100913/nura-SM-C7000"
+arch="aarch64"
+license="GPL-2.0-only"
+depends="wlr-randr"
+source="c7-pwrkey.c
+	c7-pwrkey.initd"
+sha512sums="
+91a60800468c6cbab38a4f0f991435a39ba1f926d3f3e7417a3a17e52a093898e13605303f2f740ea727a1b7efa8561bc48d1fc8f6a1a351ae377ffbc65c13ef  c7-pwrkey.c
+04bf468cd41d1c22ec73c2118eb6d3e8cfa479aaabfb8ca6094887607f036df61fb6b96e0fa25011f6d2e3b0984a01bfd2a13db96e11ba54e84c0d5c7691bfc6  c7-pwrkey.initd
+"
+builddir="$srcdir"
+
+build() {
+	$CC $CFLAGS -O2 -Wall -o c7-pwrkey c7-pwrkey.c
+}
+
+package() {
+	install -Dm755 "$builddir"/c7-pwrkey "$pkgdir"/usr/sbin/c7-pwrkey
+	install -Dm755 "$builddir"/c7-pwrkey.initd "$pkgdir"/etc/init.d/c7-pwrkey
+	mkdir -p "$pkgdir"/etc/runlevels/default
+	ln -sf /etc/init.d/c7-pwrkey "$pkgdir"/etc/runlevels/default/c7-pwrkey
+}

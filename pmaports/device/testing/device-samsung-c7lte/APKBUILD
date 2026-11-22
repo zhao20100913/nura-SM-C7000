@@ -2,7 +2,7 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=device-samsung-c7lte
 pkgver=0.1
-pkgrel=9
+pkgrel=10
 pkgdesc="Samsung Galaxy C7 (SM-C7000)"
 url="https://gitlab.nura.eco/nura/pmaports"
 arch="aarch64"
@@ -18,6 +18,7 @@ depends="
 	msm-firmware-loader
 	postmarketos-base
 	soc-qcom-msm8953
+	c7-pwrkey
 "
 makedepends="devicepkg-dev"
 source="

@@ -1,0 +1,9 @@
+#!/sbin/openrc-run
+# Blank the display when the power button is pressed (elogind is told to
+# ignore the key so it cannot power the phone off).
+
+name="c7-pwrkey"
+description="Power button display toggle for the Galaxy C7"
+command="/usr/sbin/c7-pwrkey"
+command_background=true
+pidfile="/run/c7-pwrkey.pid"
