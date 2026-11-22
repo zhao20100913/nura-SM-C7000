@@ -171,26 +171,38 @@ jobs:
           done
 
       - name: Prefetch the kernel source tarball
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           # codeload.github.com answers 429 Too Many Requests for anonymous
           # archive downloads from shared runner IPs. That broke `abuild
           # checksum` (and would break the build). Warm pmbootstrap's
           # distfiles cache with retries first, so abuild only has to verify
           # the checksum of a file that is already on disk.
+          #
+          # The api.github.com tarball endpoint is the same archive but is
+          # served against the authenticated rate limit, so try it first and
+          # only fall back to the anonymous codeload URL.
           pmbootstrap chroot -- true
           DIST="$PMB_WORK/cache_distfiles"
           NAME="$KPKG-v7.1.3-r0.tar.gz"
           TMP="$RUNNER_TEMP/$NAME"
           # pmbootstrap owns $PMB_WORK/cache_distfiles as root, so download
           # somewhere writable and install the file with sudo afterwards.
-          for i in $(seq 1 12); do
-            if curl -fL --retry 2 --retry-delay 5 --retry-all-errors \
-                 --connect-timeout 20 -o "$TMP" \
-                 "https://codeload.github.com/msm8953-mainline/linux/tar.gz/refs/tags/v7.1.3-r0"; then
-              echo "downloaded $TMP ($(stat -c%s "$TMP") bytes)"
-              break
-            fi
-            echo "download attempt $i failed, backing off"
+          for i in $(seq 1 8); do
+            for URL in \
+              "https://api.github.com/repos/msm8953-mainline/linux/tarball/refs/tags/v7.1.3-r0" \
+              "https://codeload.github.com/msm8953-mainline/linux/tar.gz/refs/tags/v7.1.3-r0"; do
+              if curl -fL --retry 2 --retry-delay 5 --retry-all-errors \
+                   --connect-timeout 20 \
+                   -H "Authorization: Bearer $GITHUB_TOKEN" \
+                   -H "Accept: application/vnd.github+json" \
+                   -o "$TMP" "$URL"; then
+                echo "downloaded $TMP from $URL ($(stat -c%s "$TMP") bytes)"
+                break 2
+              fi
+              echo "attempt $i failed: $URL"
+            done
             sleep $(( i * 8 ))
           done
           test -s "$TMP"
