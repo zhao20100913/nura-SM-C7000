@@ -3,7 +3,7 @@
 maintainer="Bart Ribbers <bribbers@disroot.org>"
 pkgname=postmarketos-ui-plasma-mobile
 pkgver=6
-pkgrel=14
+pkgrel=15
 pkgdesc="(Wayland) Mobile variant of KDE Plasma"
 url="https://wiki.postmarketos.org/wiki/Plasma_Mobile"
 # armhf blocked by pmaports#75
@@ -78,7 +78,6 @@ extras() {
 		kalgebra
 		kalk
 		kasts
-		kdeconnect
 		keysmith
 		"
 
