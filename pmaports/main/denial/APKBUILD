@@ -5,10 +5,10 @@
 # RPATH pointing at the bridge directory, and two small shim libraries that
 # supply the resolver and pthread stack the Flutter engine expects.  The same
 # adapter therefore works unchanged on aarch64.
-maintainer="nura-c7 (out-of-tree package)"
+maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=denial
 pkgver=0.6.8
-pkgrel=1
+pkgrel=2
 pkgdesc="Flutter-native Wayland compositor and desktop shell"
 url="https://github.com/denialwm/denial"
 arch="aarch64"

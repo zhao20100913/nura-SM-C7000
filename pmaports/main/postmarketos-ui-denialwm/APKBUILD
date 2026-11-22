@@ -1,4 +1,5 @@
 # Reference: https://postmarketos.org/uipkg
+maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 #
 # Nura's out-of-tree Denial UI.  Denial is a Flutter/Smithay compositor and
 # its session script already sets up the user D-Bus, pipewire and the
