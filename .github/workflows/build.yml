@@ -200,7 +200,10 @@ jobs:
           NAME="$KPKG-v7.1.3-r0.tar.gz"
           TMP="$RUNNER_TEMP/$NAME"
           APKBUILD="$PMAPORTS/device/testing/$KPKG/APKBUILD"
-          EXPECT=$(awk '/^[0-9a-f]{128}  / && /-v7\.1\.3-r0\.tar\.gz$/ {print $1}' "$APKBUILD" | head -1)
+          # mawk on the runner does not implement ERE interval expressions,
+          # so pull the line out with grep and take the first field.
+          SUMLINE=$(grep -E '^[0-9a-f]+  .*-v7\.1\.3-r0\.tar\.gz$' "$APKBUILD" | head -1)
+          EXPECT=$(printf '%s\n' "$SUMLINE" | awk '{print $1}')
           test -n "$EXPECT"
           echo "expected sha512: $EXPECT"
 
