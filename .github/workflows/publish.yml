@@ -72,10 +72,11 @@ jobs:
         run: |
           set -eu
           if [ -z "${TITLE:-}" ]; then TITLE="$TAG"; fi
-          if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" --title "$TITLE" --prerelease \
+          REPO="${{ github.repository }}"
+          if ! gh -R "$REPO" release view "$TAG" >/dev/null 2>&1; then
+            gh -R "$REPO" release create "$TAG" --title "$TITLE" --prerelease \
               --notes "Nura for the Samsung Galaxy C7 (SM-C7000)."
           fi
-          gh release upload "$TAG" out/* --clobber
-          gh release view "$TAG" --json tagName,assets \
+          gh -R "$REPO" release upload "$TAG" out/* --clobber
+          gh -R "$REPO" release view "$TAG" --json tagName,assets \
             --jq '.assets[] | "\(.name) \(.size)"'
