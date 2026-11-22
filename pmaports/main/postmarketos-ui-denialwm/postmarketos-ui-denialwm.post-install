@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# greetd is installed as a dependency but apk never enables services.
+if command -v rc-update >/dev/null 2>&1; then
+	rc-update -q add greetd default 2>/dev/null || true
+fi
+
+exit 0

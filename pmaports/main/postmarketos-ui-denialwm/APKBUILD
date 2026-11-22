@@ -1,0 +1,53 @@
+# Reference: https://postmarketos.org/uipkg
+#
+# Nura's out-of-tree Denial UI.  Denial is a Flutter/Smithay compositor and
+# its session script already sets up the user D-Bus, pipewire and the
+# compositor hand-off, so greetd only has to exec it.
+pkgname=postmarketos-ui-denialwm
+pkgver=0.1
+pkgrel=0
+pkgdesc="(Wayland) Denial compositor, Flutter-native desktop shell"
+url="https://denialwm.org/"
+arch="noarch"
+license="MIT"
+options="!check pmb:drm pmb:default-openrc pmb:support-openrc"
+replaces="greetd"
+install="$pkgname.post-install"
+
+depends="
+	dbus
+	denial
+	elogind
+	font-noto
+	font-noto-cjk
+	font-noto-emoji
+	greetd
+	greetd-openrc
+	pipewire
+	pipewire-pulse
+	polkit-elogind
+	postmarketos-base-ui
+	postmarketos-base-ui-audio
+	postmarketos-base-ui-networkmanager
+	seatd
+	wireplumber
+	xdg-desktop-portal
+	xdg-desktop-portal-gtk
+	xdg-desktop-portal-wlr
+	xwayland
+"
+
+source="
+	greetd-config.toml
+	$pkgname.post-install
+"
+
+package() {
+	install -Dm644 "$srcdir"/greetd-config.toml \
+		"$pkgdir"/etc/greetd/config.toml
+}
+
+sha512sums="
+4ce347a5d9f02b681c929589e46c37c751fccfcc10285390ed014db6b871bfb5d42ed12bdf388ff36eae0b21599cb231cc7f3120bdcc06814d85520e228d6a18  greetd-config.toml
+aa4c2e935b186aa353a282a72761efd267d0058c85f9cfb7b66b2c2e12750fdbf348df893d4bd39b78486b3bc24148abe253062542e6bf00edf667478caed6a7  postmarketos-ui-denialwm.post-install
+"

@@ -1,0 +1,8 @@
+# Nura: start Denial straight from greetd.  denial-alpine-session owns the
+# user D-Bus, pipewire/wireplumber and the compositor lifecycle.
+[terminal]
+vt = 1
+
+[default_session]
+command = "/usr/bin/denial-alpine-session"
+user = "user"
