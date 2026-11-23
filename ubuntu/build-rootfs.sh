@@ -177,13 +177,14 @@ in_root dpkg-reconfigure -f noninteractive tzdata || true
 
 # --------------------------------------------------------------------- user
 log "creating user $USERNAME"
-for grp in sudo adm video audio input plugdev netdev dialout; do
+for grp in sudo adm video audio input plugdev netdev dialout render; do
 	in_root groupadd -f "$grp"
 done
 if ! in_root id -u "$USERNAME" >/dev/null 2>&1; then
 	in_root useradd -m -s /bin/bash -G sudo,adm,video,audio,input,plugdev,netdev,dialout "$USERNAME"
 fi
 printf '%s:%s\n' "$USERNAME" "$PASSWORD" | in_root chpasswd
+in_root usermod -aG render "$USERNAME" 2>/dev/null || true
 # root login is only possible through sudo (no root password)
 in_root passwd -l root || true
 cat >> "$ROOT/etc/sudoers.d/90-$USERNAME" <<EOF
