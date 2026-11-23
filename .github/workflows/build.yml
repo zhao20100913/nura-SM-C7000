@@ -406,6 +406,85 @@ jobs:
           print("boot.img pmos_root_uuid set to", fs_uuid)
           PY
 
+      - name: Fix early initramfs (boot.img) for the C7
+        # The normal initramfs exits 1 in setup_log() before the serial
+        # console is usable, so /init dies at its exec redirect and the
+        # kernel panics with exitcode=0x100.  The probe image built by
+        # mkboot.yml boots: it runs the prologue below before
+        # mount_proc_sys_dev/setup_log.  Bake the same prologue (without
+        # the set -x debug tracing) into the normal image.  Recompressing
+        # with zstd -10 also matches the known-good probe size.
+        run: |
+          python3 -m pip install --quiet zstandard
+          python3 - <<'PY'
+          import io, pathlib, struct
+          import zstandard
+
+          p = pathlib.Path("out/boot.img")
+          data = p.read_bytes()
+          assert data[:8] == b"ANDROID!", data[:8]
+          u32 = lambda o: struct.unpack_from("<I", data, o)[0]
+          page, ksz, rsz = u32(36), u32(8), u32(16)
+          align = lambda n: (n + page - 1) // page * page
+          koff = align(1632)
+          roff = koff + align(ksz)
+          soff = roff + align(rsz)
+          tail = data[soff:]
+          rd = data[roff:soff][:rsz]
+          if rd[:4].hex() == "28b52ffd":
+              rd = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(rd)).read()
+          else:
+              import gzip
+              rd = gzip.decompress(rd)
+
+          pos, entries = 0, []
+          while pos + 110 <= len(rd):
+              hdr = rd[pos:pos + 110]
+              assert hdr[:6] == b"070701", hdr[:6]
+              f = [int(hdr[6 + 8 * i:14 + 8 * i], 16) for i in range(13)]
+              name = rd[pos + 110:pos + 110 + f[11] - 1].decode()
+              body = (pos + 110 + f[11] + 3) & ~3
+              entries.append([f, name, rd[body:body + f[6]]])
+              pos = (body + f[6] + 3) & ~3
+              if name == "TRAILER!!!":
+                  break
+
+          prologue = (b"/bin/busybox mkdir -p /dev /proc\n"
+                      b"/bin/busybox mount -t devtmpfs dev /dev 2>/dev/null\n"
+                      b"exec >/dev/kmsg 2>&1\n")
+          for e in entries:
+              if e[1].lstrip("./") == "init":
+                  if prologue not in e[2]:
+                      nl = e[2].find(b"\n")
+                      assert nl > 0
+                      e[2] = e[2][:nl + 1] + prologue + e[2][nl + 1:]
+                  assert prologue in e[2]
+
+          out = b""
+          for f, name, body in entries:
+              f = list(f)
+              f[6] = len(body)
+              nb = name.encode() + b"\0"
+              f[11] = len(nb)
+              out += b"070701" + b"".join(b"%08X" % v for v in f) + nb
+              out += b"\0" * ((4 - len(out) % 4) % 4)
+              out += body + b"\0" * ((4 - len(body) % 4) % 4)
+
+          new_rd = zstandard.ZstdCompressor(level=10).compress(out)
+          hdr = bytearray(data[:1632])
+          struct.pack_into("<I", hdr, 16, len(new_rd))
+          img = (bytes(hdr) + b"\0" * (align(1632) - 1632)
+                 + data[koff:koff + ksz] + b"\0" * (align(ksz) - ksz)
+                 + new_rd + b"\0" * (align(len(new_rd)) - len(new_rd))
+                 + tail)
+          p.write_bytes(img)
+          print("init prologue inserted, boot.img", len(img))
+          PY
+          # The export step wrote SHA256SUMS before the cmdline/init patches.
+          (cd out && find . -maxdepth 1 -type f ! -name SHA256SUMS -printf '%P\n' |
+            sort | xargs sha256sum > SHA256SUMS)
+          cat out/SHA256SUMS
+
       - name: Save build caches
         if: always()
         uses: actions/cache/save@v4
