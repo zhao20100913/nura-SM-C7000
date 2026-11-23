@@ -1,20 +1,75 @@
-name: Upload boot-probe to release
+name: Publish Ubuntu image to release
+
+# Moves a finished ubuntu-c7-* artifact into a GitHub release so the images can
+# be downloaded without logging in, and without routing hundreds of megabytes
+# through a slow link: the runner talks to the release storage directly.
+#
+# The raw root filesystem is bigger than the 2 GiB per-asset limit, so it is
+# gzipped here and the checksums are regenerated for the compressed file.
+
 on:
   workflow_dispatch:
+    inputs:
+      artifact_name:
+        description: "Artifact name to publish, e.g. ubuntu-c7-12"
+        required: true
+      run_id:
+        description: "Run id that produced the artifact"
+        required: true
+      release_tag:
+        description: "Release tag to create/update"
+        required: true
+
 permissions:
   contents: write
+
 jobs:
-  upload:
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - name: Download probe artifact
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: boot-probe-45184343282
-          run-id: 45184343282
+          name: ${{ inputs.artifact_name }}
+          run-id: ${{ inputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload as release asset
+
+      - name: Inspect
+        run: ls -lh
+
+      - name: Compress the root filesystem for the 2 GiB asset limit
+        run: |
+          set -eux
+          cp SHA256SUMS SHA256SUMS.raw || true
+          if [ -f ubuntu-c7lte-root.img ]; then
+            gzip -9 -c ubuntu-c7lte-root.img > ubuntu-c7lte-root.img.gz
+            rm -f ubuntu-c7lte-root.img
+          fi
+          sha256sum ubuntu-boot.img ubuntu-c7lte-root.img.gz > SHA256SUMS
+          cat SHA256SUMS
+          ls -lh
+
+      - name: Create or update the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload ubuntu-26.04-probe boot-probe.img --clobber --repo "$GITHUB_REPOSITORY"
+          set -eux
+          TAG='${{ inputs.release_tag }}'
+          REPO="$GITHUB_REPOSITORY"
+          if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$REPO" --title "$TAG" \
+              --notes "Ubuntu 26.04 LTS (resolute) + DenialWM 0.6.8 for the Samsung Galaxy C7 (SM-C7000 / c7lte).
+
+Flash (heimdall):
+\`\`\`
+heimdall flash --BOOT ubuntu-boot.img --USERDATA ubuntu-c7lte-root.img --no-reboot
+\`\`\`
+(first: gzip -d ubuntu-c7lte-root.img.gz)
+
+First boot: user \`c7\`, password \`147147\`; ssh over USB at 172.16.42.1."
+          fi
+          gh release upload "$TAG" ubuntu-boot.img ubuntu-c7lte-root.img.gz SHA256SUMS --clobber --repo "$REPO"
+          for f in verify.log rootfs.log SOURCE_ARTIFACT.json; do
+            [ -f "$f" ] && gh release upload "$TAG" "$f" --clobber --repo "$REPO" || true
+          done
+          gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[] | "\(.name) \(.size)"'
