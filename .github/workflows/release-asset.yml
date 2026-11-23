@@ -54,19 +54,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -eux
-          TAG='${{ inputs.release_tag }}'
+          TAG="${{ inputs.release_tag }}"
           REPO="$GITHUB_REPOSITORY"
           if ! gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
-            gh release create "$TAG" --repo "$REPO" --title "$TAG" \
-              --notes "Ubuntu 26.04 LTS (resolute) + DenialWM 0.6.8 for the Samsung Galaxy C7 (SM-C7000 / c7lte).
+            gh release create "$TAG" --repo "$REPO" --title "$TAG" --notes "Ubuntu 26.04 LTS (resolute) + DenialWM 0.6.8 for the Samsung Galaxy C7 (SM-C7000 / c7lte).
 
-Flash (heimdall):
-\`\`\`
-heimdall flash --BOOT ubuntu-boot.img --USERDATA ubuntu-c7lte-root.img --no-reboot
-\`\`\`
-(first: gzip -d ubuntu-c7lte-root.img.gz)
+          Flash with heimdall: heimdall flash --BOOT ubuntu-boot.img --USERDATA ubuntu-c7lte-root.img --no-reboot
+          The root filesystem is gzipped because of the 2 GiB asset limit: gzip -d ubuntu-c7lte-root.img.gz first.
 
-First boot: user \`c7\`, password \`147147\`; ssh over USB at 172.16.42.1."
+          First boot: user c7, password 147147; ssh over USB at 172.16.42.1."
           fi
           gh release upload "$TAG" ubuntu-boot.img ubuntu-c7lte-root.img.gz SHA256SUMS --clobber --repo "$REPO"
           for f in verify.log rootfs.log SOURCE_ARTIFACT.json; do
