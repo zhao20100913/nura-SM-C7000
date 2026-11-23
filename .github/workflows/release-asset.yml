@@ -1,0 +1,19 @@
+name: Upload boot-probe to release
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download probe artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: boot-probe-45184343282
+          run-id: 45184343282
+      - name: Upload as release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload ubuntu-26.04-probe boot-probe.img --clobber --repo "$GITHUB_REPOSITORY"
