@@ -21,6 +21,10 @@ on:
         description: "asset name for the boot image"
         required: false
         default: "boot.img"
+      root_name:
+        description: "rootfs file name inside the artifact"
+        required: false
+        default: "samsung-c7lte-root.img"
       gzip_root:
         description: "gzip the rootfs image (GitHub caps assets at 2 GB)"
         required: false
@@ -41,6 +45,7 @@ jobs:
           AID: ${{ inputs.artifact_id }}
           BOOT_NAME: ${{ inputs.boot_name }}
           GZIP_ROOT: ${{ inputs.gzip_root }}
+          ROOT_NAME: ${{ inputs.root_name }}
         run: |
           set -eu
           gh api "/repos/${{ github.repository }}/actions/artifacts/$AID/zip" > a.zip
@@ -48,9 +53,9 @@ jobs:
           unzip -o -q a.zip -d art
           ls -l art || true
           # mkboot-style artifacts already name the file boot-probe.img / boot-nolog.img
-          BOOT=$(find art -type f -name 'boot*.img' | head -1)
+          BOOT=$(find art -type f -name '*boot*.img' | head -1)
           if [ -z "$BOOT" ]; then BOOT=$(find art -type f -name '*.img' | head -1); fi
-          ROOT=$(find art -name 'samsung-c7lte-root.img' -type f | head -1)
+          ROOT=$(find art -name "*$ROOT_NAME" -type f | head -1)
           test -n "$BOOT"
           cp "$BOOT" "out/$BOOT_NAME"
           if [ -n "$ROOT" ]; then

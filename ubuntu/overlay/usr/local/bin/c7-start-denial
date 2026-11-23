@@ -1,0 +1,33 @@
+#!/bin/sh
+# Start the Denial session on /dev/tty1 (see ../home/c7/.bash_profile).
+#
+# The arm64 Denial debs are glibc builds, so on Ubuntu they run directly.
+# libseat uses logind (this is a normal systemd login session), and
+# dbus-run-session gives the compositor a session bus even though tty1 was
+# started by agetty rather than a display manager.
+set -u
+
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=Denial
+export XDG_CURRENT_DESKTOP=Denial
+export LIBSEAT_BACKEND=logind
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM=wayland
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/denial"
+mkdir -p "$state_dir"
+chmod 0700 "$state_dir"
+exec >>"$state_dir/ubuntu-session.log" 2>&1
+printf '\n=== Ubuntu Denial session %s ===\n' "$(date -Iseconds)"
+
+if [ ! -e /dev/dri/card0 ]; then
+	echo "c7-start-denial: no /dev/dri/card0; panel/DRM did not bind" >&2
+	exec bash -l
+fi
+
+echo "c7-start-denial: starting Denial"
+dbus-run-session -- /usr/bin/denial-session --start-locked
+rc=$?
+echo "c7-start-denial: denial-session exited with $rc" >&2
+echo "c7-start-denial: log: $state_dir/ubuntu-session.log" >&2
+exec bash -l

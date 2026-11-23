@@ -111,6 +111,41 @@ else
 	touch "$ROOT/.c7-packages-installed"
 fi
 
+# ------------------------------------------------------------ DenialWM
+DESKTOP=${DESKTOP:-phosh}
+if [ "$DESKTOP" = "denial" ]; then
+	log "installing DenialWM (glibc arm64 debs)"
+	mkdir -p "$ROOT/tmp/denial"
+	for deb in denial_0.6.8-1_arm64.deb \
+		   denial-flutter-engine_0.6.8-1_arm64.deb; do
+		curl -fL --retry 3 --retry-delay 5 \
+			-o "$ROOT/tmp/denial/$deb" \
+			"https://github.com/denialwm/denial/releases/download/v0.6.8/$deb"
+	done
+	chmod 644 "$ROOT/tmp/denial/"*.deb
+
+	DENIAL_DEPS="libseat1 libinput10 libxkbcommon0 libgbm1 libegl1 libgles2
+		libvulkan1 libpulse0 pipewire wireplumber xdg-desktop-portal
+		xdg-desktop-portal-wlr xwayland fonts-noto-cjk
+		fonts-noto-color-emoji dbus-x11 polkitd rtkit"
+	DENIAL_INSTALL=()
+	for pkg in $DENIAL_DEPS; do
+		if in_root apt-cache show "$pkg" >/dev/null 2>&1; then
+			DENIAL_INSTALL+=("$pkg")
+		else
+			log "warning: Denial dependency $pkg not in $RELEASE"
+		fi
+	done
+	if [ ${#DENIAL_INSTALL[@]} -gt 0 ]; then
+		in_root apt-get install -y --no-install-recommends \
+			"${DENIAL_INSTALL[@]}"
+	fi
+	in_root apt-get install -y \
+		/tmp/denial/denial-flutter-engine_0.6.8-1_arm64.deb \
+		/tmp/denial/denial_0.6.8-1_arm64.deb
+	rm -rf "$ROOT/tmp/denial"
+fi
+
 # Keep the image small: no documentation, no apt cache, no man pages.
 in_root apt-get clean
 rm -rf "$ROOT/var/lib/apt/lists"/* "$ROOT/var/cache/apt/archives"/*.deb
@@ -163,7 +198,9 @@ cp -a "$HERE/overlay/." "$ROOT"/
 UID_=$(in_root id -u "$USERNAME")
 GID_=$(in_root id -g "$USERNAME")
 chown -R "$UID_:$GID_" "$ROOT/home/$USERNAME"
-chmod 0755 "$ROOT/usr/local/bin/c7-start-phosh" "$ROOT/usr/local/sbin/c7-usb-gadget.sh"
+chmod 0755 "$ROOT/usr/local/bin/c7-start-phosh" \
+	"$ROOT/usr/local/bin/c7-start-denial" \
+	"$ROOT/usr/local/sbin/c7-usb-gadget.sh"
 chmod 0600 "$ROOT/etc/NetworkManager/system-connections/usb0.nmconnection"
 
 # ---------------------------------------------------- kernel modules/firmware
