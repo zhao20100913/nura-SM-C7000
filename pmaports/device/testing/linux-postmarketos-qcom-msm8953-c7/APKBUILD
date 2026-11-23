@@ -6,7 +6,7 @@ maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 _flavor="postmarketos-qcom-msm8953-c7"
 pkgname=linux-$_flavor
 pkgver=7.1.3
-pkgrel=31
+pkgrel=32
 pkgdesc="Mainline kernel for the Samsung Galaxy C7 (SM-C7000), MSM8953"
 arch="aarch64"
 _carch="arm64"
@@ -150,7 +150,7 @@ sha512sums="\
 	d8d00104d8318d58d178a205c663362f7a535ac24aafcf6b80cfd13a1faeb3ab068dc9228ba4bdd3f6a2d8417f090e8023395e49fb37f3517aae4253217aafcc  config-postmarketos-qcom-msm8953-c7.aarch64 \
 	0318d025d352fda1f718cfca8c9071a3ee9c1b5c11cc5b166c3480c4c763bebf30044c1bcf5b9261481cb599bdd5e2f0e834fd72217c01f06dfd9c2a99048658  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch \
 	ead332ec9aceca5871e64239dd2f5037af3c3330ca9cb2080bfd7cd7048e2b68fb5ae376d7c81bc2153f527102977b6a1851330fbcf10128499fffaf5c510022  0002-wcn36xx-force-v0.patch \
-	7fa24030e76883ea2715f870277a85893fd5db2224a944e8a271c8fc62ed73fc3b808ccca4ef1b925db94db6a81717a70c77d0c5960ae69fb4c5a6e74a94219f  0003-wcn36xx-bss-leak.patch \
+	7a93daab182c8a37ed39358809c1336784816856cd3d5f73988d6de45b62f95d69f30d474bb5611cf7c49e021e683bce855bca0c7fbd57e335d6b0275d69db60  0003-wcn36xx-bss-leak.patch \
 	ccd3ee219da9ee942c6375b23fbe953af3346f825a2065fd9ae06161c33bb1dda1e38d357bb4e42ea4c2bf9212955991870b21e530256305043c805a06bda97b  panel-samsung-s6e3fa3.c \
 	b74e2dc5fdc449bc82bef3744d56b59df0dc7269f79b2d905a5d2d93a83ea137bb8eac6324de061702c2cabcefd634ad787a99cfe3b3dc55187a67c9d52692e8  melfas-mms449.c \
 	39bbc4ed2a0661248125fecaea0aec2b447aa2e113e2a8d578f8de2ccd4c8bfe5f1c379c978f333369e99092557e2ce6d4ae8be325b4ce5eedba9e83299866ee  sm5705-charger.c \
