@@ -12,6 +12,7 @@ jobs:
         with:
           name: boot-probe-45184343282
           run-id: 45184343282
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload as release asset
         env:
           GH_TOKEN: ${{ github.token }}
