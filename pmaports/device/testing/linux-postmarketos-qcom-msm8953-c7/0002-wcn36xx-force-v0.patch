@@ -1,6 +1,6 @@
 --- a/drivers/net/wireless/ath/wcn36xx/smd.c
 +++ b/drivers/net/wireless/ath/wcn36xx/smd.c
-@@ -24,6 +24,18 @@
+@@ -24,6 +24,20 @@
  #include "smd.h"
  #include "firmware.h"
  
@@ -9,17 +9,19 @@
 + * implement the pre-1.2.2.24 HAL message layout.  The version check below
 + * selects the v1 layout for every version except exactly 1.2.2.24, which
 + * makes such a firmware parse the extra VHT fields as SSID/rate data and
-+ * reject config_bss with WCN36XX_FW_MSG_RESULT_MEM_FAIL (5).  Allow the v0
-+ * layout to be forced at runtime for testing.
++ * reject config_bss with WCN36XX_FW_MSG_RESULT_MEM_FAIL (5).
++ *
++ * Default to the v0 layout on this tree so the next test is unambiguous;
++ * force_v0=0 switches back to the version-checked v1 path at runtime.
 + */
-+static bool force_v0;
++static bool force_v0 = true;
 +module_param(force_v0, bool, 0644);
 +MODULE_PARM_DESC(force_v0, "Use the pre-1.2.2.24 HAL message layout");
 +
  struct wcn36xx_cfg_val {
  	u32 cfg_id;
  	u32 value;
-@@ -1501,7 +1513,7 @@
+@@ -1501,7 +1515,7 @@
  
  	mutex_lock(&wcn->hal_mutex);
  
@@ -28,11 +30,21 @@
  		ret = wcn36xx_smd_config_sta_v1(wcn, vif, sta);
  	else
  		ret = wcn36xx_smd_config_sta_v0(wcn, vif, sta);
-@@ -1828,7 +1840,7 @@
+@@ -1824,11 +1838,17 @@
+ 			   struct ieee80211_sta *sta, const u8 *bssid,
+ 			   bool update)
+ {
++	const char *layout;
+ 	int ret;
  
  	mutex_lock(&wcn->hal_mutex);
  
 -	if (!wcn36xx_is_fw_version(wcn, 1, 2, 2, 24))
++	layout = (!force_v0 &&
++		  !wcn36xx_is_fw_version(wcn, 1, 2, 2, 24)) ? "v1" : "v0";
++	wcn36xx_info("config bss %pM: %s layout (force_v0=%d)\n",
++		     bssid, layout, force_v0);
++
 +	if (!force_v0 && !wcn36xx_is_fw_version(wcn, 1, 2, 2, 24))
  		ret = wcn36xx_smd_config_bss_v1(wcn, vif, sta, bssid, update);
  	else
