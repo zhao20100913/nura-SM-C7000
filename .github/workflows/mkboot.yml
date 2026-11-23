@@ -35,7 +35,7 @@ jobs:
           import zstandard
 
           mode = os.environ["MODE"]
-          data = next(pathlib.Path("art").rglob("boot.img")).read_bytes()
+          data = next(pathlib.Path("art").rglob("*boot.img")).read_bytes()
           u32 = lambda o: struct.unpack_from("<I", data, o)[0]
           page, ksz, rsz = u32(36), u32(8), u32(16)
           align = lambda n: (n + page - 1) // page * page
