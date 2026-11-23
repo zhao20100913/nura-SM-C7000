@@ -8,13 +8,15 @@ url="https://github.com/zhao20100913/nura-SM-C7000"
 arch="noarch"
 license="MIT"
 options="!check"
-depends="iw rfkill wpa_supplicant"
+depends="iw wpa_supplicant"
 source="
 	c7-wifi-tune
 	c7-wifi
+	c7-wifi-nwmm
 "
 
 package() {
 	install -Dm755 "$srcdir/c7-wifi-tune" "$pkgdir"/etc/init.d/c7-wifi-tune
 	install -Dm755 "$srcdir/c7-wifi" "$pkgdir"/usr/bin/c7-wifi
+	install -Dm755 "$srcdir/c7-wifi-nwmm" "$pkgdir"/usr/bin/c7-wifi-nwmm
 }
