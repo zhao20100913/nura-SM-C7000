@@ -1,0 +1,50 @@
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -826,6 +826,16 @@
+ 
+ 		if (!is_zero_ether_addr(bss_conf->bssid)) {
+ 			vif_priv->is_joining = true;
++			/*
++			 * Drop a BSS entry left over from a previous
++			 * (possibly failed) connection first: the index is
++			 * about to be overwritten, so otherwise the firmware
++			 * entry can never be freed and the BSS table fills
++			 * up until ADD_BSS returns MEM_FAIL.
++			 */
++			if (vif_priv->bss_index !=
++			    WCN36XX_HAL_BSS_INVALID_IDX)
++				wcn36xx_smd_delete_bss(wcn, vif);
+ 			vif_priv->bss_index = WCN36XX_HAL_BSS_INVALID_IDX;
+ 			wcn36xx_smd_set_link_st(wcn, bss_conf->bssid, vif->addr,
+ 						WCN36XX_HAL_LINK_PREASSOC_STATE);
+@@ -859,6 +869,7 @@
+ 		if (vif->cfg.assoc) {
+ 			struct ieee80211_sta *sta;
+ 			struct wcn36xx_sta *sta_priv;
++			bool update;
+ 
+ 			wcn36xx_dbg(WCN36XX_DBG_MAC,
+ 				    "mac assoc bss %pM vif %pM AID=%d\n",
+@@ -887,9 +898,20 @@
+ 			wcn36xx_smd_set_link_st(wcn, bss_conf->bssid,
+ 				vif->addr,
+ 				WCN36XX_HAL_LINK_POSTASSOC_STATE);
++			/*
++			 * If the pre-association ADD_BSS failed (for example
++			 * because the firmware wants the AID), retry it here
++			 * now that the AID is available instead of sending an
++			 * UPDATE for a BSS that was never created.
++			 */
++			update = vif_priv->bss_index !=
++				 WCN36XX_HAL_BSS_INVALID_IDX;
++			wcn36xx_info("assoc bss %pM: %s (bss_index %d)\n",
++				     bss_conf->bssid,
++				     update ? "update" : "add",
++				     vif_priv->bss_index);
+ 			wcn36xx_smd_config_bss(wcn, vif, sta,
+-					       bss_conf->bssid,
+-					       true);
++					       bss_conf->bssid, update);
+ 			sta_priv->aid = vif->cfg.aid;
+ 			/*
+ 			 * config_sta must be called from  because this is the
