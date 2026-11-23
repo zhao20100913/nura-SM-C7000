@@ -91,3 +91,62 @@ wcn36xx: mac 0x...
 * remoteproc 目前是由 OpenRC 的 `local.d` 脚本启动的，而不是一个正式的服务；把它上游化为 `qcom-wcnss-pil` init 脚本才是干净的解决方式。
 * `qcom,smsm` 的 “can't parse mboxes” 警告继承自 `msm8953.dtsi`；目前没有观察到它会阻断 WiFi，但如果 wcn36xx 的探测在较晚阶段失败，下一步就在板级 DTS 里覆盖 `&smsm { mboxes = ...; }`。
 * 管制域（regulatory domain）来自 rootfs 中的 `regulatory.db`，没有强制指定任何国家。
+
+## 4-way 握手失败怎么定位（v6 起）
+
+先说两个被 v5 误导的点：
+
+* `c7-wifi-nwmm` 里的 `wmm_enabled=0` **不是 wpa_supplicant 的 station 选项**
+  （只存在于 hostapd）。wpa_supplicant 会报 `unknown network block field`
+  并忽略它，所以“关 WMM”那次测试实际没有生效。station 模式本来也无法从
+  用户态关掉 WMM——这版改成 `disable_ht/disable_ht40/disable_vht`。
+* wcn36xx 驱动从来没有打开 U-APSD：`main.c` 只设置了 `SUPPORTS_PS`，
+  `config_sta` 里 `uapsd = 0`。所以“U-APSD 吞掉 EAPOL”这个假设，
+  在主机侧缺一个能成立的开关，不要先在这条线上耗时间。
+
+### 一条命令
+
+```sh
+sudo c7-wifi <SSID> <密码> [--save] [--legacy]
+```
+
+它会停掉 NetworkManager、关省电、设 `CN`、打开 wcn36xx 的 HAL/MAC 调试，
+跑 `wpa_supplicant -dd`，然后直接打印握手停在哪一步：
+
+| 输出 | 含义 | 下一步 |
+| --- | --- | --- |
+| `EAPOL frames received : 0` | AP 的 M1 没到主机 | 固件收包/省电；重试 `--legacy` |
+| `M2 sent > 0`、`M3 received : 0` | AP 不接受 M2（PSK）或 PTK 没装进固件 | 看上面的 `driver key errors` |
+| `M4 sent : 0`（M3 已到） | MIC/PTK 不匹配 | 基本就是密码不对 |
+
+日志留在 `/tmp/c7-wpa.log`，失败时脚本会打印其中 20 行关键内容。
+
+### NetworkManager 的 “Secrets were required”
+
+这句话的意思是**没有 secret agent 应答**，不是密码错。phosh 环境没有
+常驻的 NM secret agent（gnome-shell 那套不在），PSK 一旦是 agent-owned，
+NM 就取不到；所以密钥必须存在连接文件里（`psk-flags=0`）。
+`--save` 会写 `/etc/NetworkManager/system-connections/c7-<ssid>.nmconnection`
+（0600、`autoconnect-priority=10`、`powersave=2`），然后把 `wlan0` 交回 NM。
+
+只想修已有连接、不重连的话：
+
+```sh
+sudo nmcli con mod "<连接名>" wifi-sec.psk "<密码>" wifi-sec.psk-flags 0
+sudo nmcli con up "<连接名>"
+```
+
+### 管制域
+
+v5 的 `c7-wifi-tune` 只安装、从未 `rc-update add`，所以开机时
+`iw reg set CN` 从未执行，`country=00` 保持不变。另外这个命令需要
+`wireless-regdb`（签名的 `regulatory.db`），缺了只会静默失败。
+v6 让 `c7-wifi` 依赖 `wireless-regdb`、启用 `c7-wifi-tune`，并在
+`10-wcnss.start` 里 modprobe `wcn36xx` 之后立刻设 `CN`。
+
+验证：
+
+```sh
+iw reg get | head -1     # 期望 country CN
+iw dev wlan0 get power_save
+```

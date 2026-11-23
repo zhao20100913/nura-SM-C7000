@@ -1,51 +1,15 @@
 #!/bin/sh
-# c7-wifi-nwmm SSID PASSWORD
+# Kept for compatibility with the v5 instructions.
 #
-# Same as c7-wifi, but disables WMM (802.11e) and HT40.  wcn36xx puts the
-# link into U-APSD when WMM is on, and with U-APSD the firmware queues the
-# AP's EAPOL frames instead of delivering them, so the 4-way handshake times
-# out.  With WMM off those frames arrive as plain data frames.
+# "wmm_enabled" is not a wpa_supplicant network option (it only exists in
+# hostapd), so the v5 script never disabled WMM: wpa_supplicant logged
+# "unknown network block field 'wmm_enabled'" and the test did nothing.
+# A station cannot turn WMM off from userspace either, so this now runs the
+# closest supported variant: HT/VHT/40 MHz disabled.
+#
+# If this still fails, the U-APSD theory was wrong and the verdict printed
+# by c7-wifi is the useful next datum.
+
 set -eu
-
-[ $# -ge 2 ] || { echo "usage: c7-wifi-nwmm SSID PASSWORD" >&2; exit 1; }
-ssid=$1
-pass=$2
-conf=/run/c7-wpa-nwmm.conf
-
-cat > "$conf" <<CONF
-network={
-	ssid="$ssid"
-	psk="$pass"
-	proto=RSN
-	key_mgmt=WPA-PSK
-	pairwise=CCMP
-	group=CCMP
-	ieee80211w=0
-	wmm_enabled=0
-	disable_ht40=1
-	disable_vht=1
-}
-CONF
-chmod 600 "$conf"
-
-rc-service networkmanager stop 2>/dev/null || true
-rc-service wpa_supplicant stop 2>/dev/null || true
-pkill -f wpa_supplicant 2>/dev/null || true
-sleep 1
-
-rfkill unblock wifi 2>/dev/null || true
-iw reg set CN 2>/dev/null || true
-iw dev wlan0 set power_save off 2>/dev/null || true
-
-echo "== connecting to $ssid (WMM off)"
-wpa_supplicant -B -i wlan0 -D nl80211 -c "$conf"
-sleep 6
-
-echo "== link"
-iw dev wlan0 link || true
-
-echo "== dhcp"
-udhcpc -i wlan0 -q -n -t 10 || true
-
-echo "== address"
-ip -4 addr show wlan0 || true
+echo "c7-wifi-nwmm: WMM cannot be disabled as a station; using HT/VHT off" >&2
+exec /usr/bin/c7-wifi "$@" --legacy

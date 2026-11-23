@@ -4,6 +4,11 @@
 # probes.  msm-firmware-loader has to have published the firmware from the
 # apnhlos partition first, so give it a few seconds, then boot the remote
 # processor and load the WLAN driver.
+#
+# Once wlan0 exists, set the regulatory domain here as well: this runs from
+# openrc's "local" service, before NetworkManager tries its first connection,
+# while c7-wifi-tune only runs after NM.  country=00 marks every 5 GHz channel
+# no-IR, so a 5 GHz AP cannot be associated until CN is applied.
 
 state=/sys/class/remoteproc
 target=/sys/module/firmware_class/parameters/path
@@ -27,3 +32,16 @@ for rp in "$state"/remoteproc*; do
 done
 
 modprobe wcn36xx 2>/dev/null || true
+
+# The netdevice appears during probe, so this wait is normally a no-op.
+i=0
+while [ "$i" -lt 10 ] && [ ! -d /sys/class/net/wlan0 ]; do
+	i=$((i + 1))
+	sleep 1
+done
+
+if [ -d /sys/class/net/wlan0 ]; then
+	iw reg set CN 2>/dev/null ||
+		echo "wcnss: iw reg set CN failed (wireless-regdb missing?)"
+	iw dev wlan0 set power_save off 2>/dev/null || true
+fi

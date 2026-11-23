@@ -2,7 +2,7 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=device-samsung-c7lte
 pkgver=0.1
-pkgrel=13
+pkgrel=14
 pkgdesc="Samsung Galaxy C7 (SM-C7000)"
 url="https://gitlab.nura.eco/nura/pmaports"
 arch="aarch64"
@@ -68,5 +68,5 @@ sha512sums="\
 	7bd2f947109a9b943f294114ef8c047656fe0e9feb01d63c6cb9ffd8aaf0061432aca50cc2c4549a994987c520cbddb859e17c06bd1bc944c4d06674ba952907  deviceinfo \
 	621201b5fccd6930bb80240811cba77d790cd8b1ab8f1ad8cebd2f8e4ec5bfe95f0b8fedac33a8bc7babd2cc19af61b0e6d834b6ae8cb59268114caa9a121764  kernel-cmdline.conf \
 	abc46606c4f9a2ec3f4f49baf0f601e0e2e8866af0c086bb62bdeafdf31f8a11c4dca5671d67e0412f0c617f77f23e02a777344de8d0f792f208ab3f01c5122d  WCNSS_qcom_wlan_nv.bin \
-	81b0bf034c3842ae4e515caa558c5ac7fa1b217aa911393ec0c47abad9b0e93a66aed0e9f9fac4e10d3d5631e5e98aef6e050575bd665a8d583c524de6e2ce97  10-wcnss.start \
+	aa8bc1032e01909e8cd7699bacde8c5f9655e8c5d807c851a2fe5465aa02f0fc0175595e3100d62a2cc075ce4ef42936337602b207fe1bcfd38ef2d47a23e0ef  10-wcnss.start \
 	8ff34af1cc2d508127ff7e74106248c928fb0e032acef31728568cef3519064b60808b1f7b9d963a40906b83e762475725f7be94c1d6abc1ded969c96173a862  10-c7-power.conf"
