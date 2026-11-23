@@ -2,7 +2,7 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 pkgname=c7-wifi
 pkgver=0.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Wireless tuning and NetworkManager-free connect helper for Galaxy C7"
 url="https://github.com/zhao20100913/nura-SM-C7000"
 arch="aarch64"
@@ -31,6 +31,6 @@ package() {
 
 sha512sums="
 c786d95f478b0294e82e7e898bb9b1e97a8d08f5c1941c8671cc6dabeacd2a8f42c14f3ae69e175bd4995597789f7206498b6a810c87d7f02bb87a55417e280a  c7-wifi-tune
-9a748c7781936ae1074cf81b6fa28fdc6cf38586729b605a5cbce22c8afc17f5f3daec2ab19df2a9270f34d37db54b86383ca4c470b8b3c56d9c2988f497d1e1  c7-wifi
+6ff634242c2bd3452dc75717c0ecae07440e1690815bfbfc170c7461c601d1c7f083ac5a48c9f03cfdbc8179fcc7a89b9574bc92b7a91aa277b9251ba9cb5054  c7-wifi
 2ad707b1daa8131f4e92729263d1b6486d671cfa0a2d7205cf35a11e0d401cc556fd85372a1a1dffcd0a88901ecd582ce4461b60bbcec2b63ddff24fc1038cf5  c7-wifi-nwmm
 "

@@ -1,24 +1,23 @@
 #!/bin/sh
 # c7-wifi SSID PASSWORD [--save] [--legacy]
 #
-# Connect the C7 to a WPA2-PSK network without NetworkManager, and when the
-# 4-way handshake fails, report *where* it failed instead of guessing:
+# Drive wpa_supplicant directly, try several link variants and report where
+# each one stops.  This is both the connect helper and the 4-way-handshake
+# diagnostic for the C7 (wcn36xx/WCN3680):
 #
-#   EAPOL M1 never arrives      -> firmware/RX/power-save problem (not PSK)
-#   M1 arrives, M2 sent, no M3  -> AP rejected M2 (PSK) or PTK was not
-#                                  installed in the firmware (see dmesg)
-#   M3 arrives, M4 not sent     -> MIC/PTK mismatch, almost always the PSK
+#   variant   profile
+#   ccmp      RSN, CCMP pairwise/group, HT/VHT as negotiated
+#   no-ht     CCMP, HT40/VHT disabled (firmware-friendly BSS config)
+#   tkip      CCMP+TKIP allowed (APs with a TKIP group cipher)
 #
-# --save additionally writes an /etc/NetworkManager/system-connections
-# keyfile with psk-flags=0 and hands wlan0 back to NetworkManager.  That is
-# the fix for NM's "Secrets were required, but not provided": the message
-# means no secret agent answered, not that the password is wrong, so the
-# secret has to live in the connection file itself.
+# For every variant it prints the EAPOL/M1/M2/M3/M4 counters from the real
+# supplicant log.  --save writes an NM keyfile with psk-flags=0 and hands
+# wlan0 back to NetworkManager when the ccmp variant is the one that works
+# (NM cannot force the no-ht/tkip variants).
 #
-# --legacy turns HT/VHT/40 MHz off.  wpa_supplicant has no "wmm_enabled"
-# option for a station (the old c7-wifi-nwmm wrote one and was ignored).
+# --legacy skips the ccmp variant (starts with no-ht).
 #
-# Exit status: 0 = connected (and saved, if asked), 1 = failed.
+# Exit status: 0 = connected, 1 = failed.
 
 set -u
 
@@ -58,25 +57,106 @@ conf=/run/c7-wpa.conf
 log=/tmp/c7-wpa.log
 debug=/sys/module/wcn36xx/parameters/debug_mask
 oldmask=
+wpa_pid=
 
 say() { printf '%s\n' "$*"; }
 
-# Keep the HAL/MAC messages (set_key, config_bss, set_stakey) in dmesg for a
-# failed handshake; they are the only way to see a firmware key-install error.
+count() {
+	c=$(grep -c "$1" "$log" 2>/dev/null) || c=0
+	echo "${c:-0}"
+}
+
+# wpa_supplicant 2.11 has no -f option (that is hostapd); run it in the
+# foreground of a background job and redirect its log instead.
+start_wpa() {
+	killall wpa_supplicant 2>/dev/null || true
+	sleep 1
+	: > "$log"
+	if command -v setsid >/dev/null 2>&1; then
+		setsid wpa_supplicant -i wlan0 -D nl80211 -c "$conf" -dd \
+			>"$log" 2>&1 &
+	else
+		wpa_supplicant -i wlan0 -D nl80211 -c "$conf" -dd \
+			>"$log" 2>&1 &
+	fi
+	wpa_pid=$!
+}
+
+stop_wpa() {
+	[ -n "$wpa_pid" ] || return 0
+	kill "$wpa_pid" 2>/dev/null || true
+	wait "$wpa_pid" 2>/dev/null || true
+	killall wpa_supplicant 2>/dev/null || true
+	wpa_pid=
+}
+
+write_conf() {
+	extra=$1
+	{
+		echo 'network={'
+		printf '\tssid="%s"\n' "$ssid"
+		printf '\tpsk="%s"\n' "$pass"
+		echo '	proto=RSN'
+		echo '	key_mgmt=WPA-PSK'
+		echo '	ieee80211w=0'
+		[ -n "$extra" ] && printf '%s\n' "$extra"
+		echo '}'
+	} > "$conf"
+	chmod 600 "$conf"
+}
+
+# $1 label, $2 extra config lines
+attempt() {
+	label=$1
+	extra=$2
+
+	write_conf "$extra"
+	start_wpa
+
+	connected=0
+	i=0
+	while [ "$i" -lt 20 ]; do
+		if grep -q 'CTRL-EVENT-CONNECTED' "$log" 2>/dev/null; then
+			connected=1
+			break
+		fi
+		if [ "$i" -ge 6 ] &&
+		   grep -q 'CTRL-EVENT-DISCONNECTED' "$log" 2>/dev/null; then
+			break
+		fi
+		sleep 1
+		i=$((i + 1))
+	done
+
+	eapol=$(count 'RX EAPOL from')
+	m1=$(count 'RX message 1 of 4-Way')
+	m2=$(count 'Sending EAPOL-Key 2/4')
+	m3=$(count 'RX message 3 of 4-Way')
+	m4=$(count 'Sending EAPOL-Key 4/4')
+	reason=$(grep -o 'reason=[0-9]*' "$log" 2>/dev/null | tail -1)
+
+	say "  [$label] EAPOL=$eapol M1=$m1 M2=$m2 M3=$m3 M4=$m4 $reason"
+
+	if [ "$connected" = 1 ]; then
+		return 0
+	fi
+	stop_wpa
+	return 1
+}
+
+finish() {
+	[ -n "$oldmask" ] && [ -w "$debug" ] &&
+		echo "$oldmask" > "$debug" 2>/dev/null
+}
+trap finish EXIT
+trap 'exit 1' INT TERM
+
+# HAL/MAC debug gives the firmware's config_bss status (and key errors).
 if [ -w "$debug" ]; then
 	oldmask=$(cat "$debug" 2>/dev/null || echo 0)
 	echo 0x500 > "$debug" 2>/dev/null || true
 fi
 
-restore() {
-	if [ -n "$oldmask" ] && [ -w "$debug" ]; then
-		echo "$oldmask" > "$debug" 2>/dev/null || true
-	fi
-}
-trap restore EXIT
-trap 'exit 1' INT TERM
-
-# ---------------------------------------------------------------- rfkill/reg
 rfkill unblock wifi 2>/dev/null || true
 if ! iw reg set CN 2>/tmp/c7-reg.err; then
 	say "note: iw reg set CN failed: $(cat /tmp/c7-reg.err 2>/dev/null)"
@@ -85,9 +165,8 @@ if ! iw reg set CN 2>/tmp/c7-reg.err; then
 		say "note: no regulatory.db; install the wireless-regdb package"
 	fi
 fi
-say "regdomain: $(iw reg get 2>/dev/null | head -1)"
+say "regdomain: $(iw reg get 2>/dev/null | grep -m1 '^country' || echo 'country unknown')"
 
-# ------------------------------------------------------------ free interface
 rc-service networkmanager stop >/dev/null 2>&1 || true
 killall wpa_supplicant 2>/dev/null || true
 i=0
@@ -98,105 +177,63 @@ done
 iw dev wlan0 set power_save off 2>/dev/null || true
 say "power save: $(iw dev wlan0 get power_save 2>/dev/null | sed 's/.*: //')"
 
-# ------------------------------------------------------------------- profile
-{
-	echo 'network={'
-	printf '\tssid="%s"\n' "$ssid"
-	printf '\tpsk="%s"\n' "$pass"
-	echo '	proto=RSN'
-	echo '	key_mgmt=WPA-PSK'
-	echo '	pairwise=CCMP'
-	echo '	group=CCMP'
-	echo '	ieee80211w=0'
-	if [ "$legacy" = 1 ]; then
-		echo '	disable_ht=1'
-		echo '	disable_ht40=1'
-		echo '	disable_vht=1'
-	fi
-	echo '}'
-} > "$conf"
-chmod 600 "$conf"
-rm -f "$log"
+ccmp='	pairwise=CCMP
+	group=CCMP'
+noht='	pairwise=CCMP
+	group=CCMP
+	disable_ht=1
+	disable_ht40=1
+	disable_vht=1'
+tkip='	pairwise=CCMP TKIP
+	group=CCMP TKIP'
 
-say "== connecting to $ssid"
-if ! wpa_supplicant -B -i wlan0 -D nl80211 -c "$conf" -f "$log" -dd; then
-	say "c7-wifi: wpa_supplicant failed to start"
-	exit 1
+say "== trying link variants for $ssid"
+won=
+if [ "$legacy" = 0 ] && attempt ccmp "$ccmp"; then
+	won=ccmp
+elif attempt no-ht "$noht"; then
+	won=no-ht
+elif attempt tkip "$tkip"; then
+	won=tkip
 fi
 
-connected=0
-i=0
-while [ "$i" -lt 25 ]; do
-	if grep -q 'CTRL-EVENT-CONNECTED' "$log" 2>/dev/null; then
-		connected=1
-		break
-	fi
-	if [ "$i" -ge 8 ] && grep -q 'CTRL-EVENT-DISCONNECTED' "$log" 2>/dev/null; then
-		break
-	fi
-	sleep 1
-	i=$((i + 1))
-done
-
-count() { grep -c "$1" "$log" 2>/dev/null || true; }
-
-# These strings are from hostap's wpa.c: "WPA: RX message 1 of 4-Way
-# Handshake from", "WPA: Sending EAPOL-Key 2/4", ...
-eapol_rx=$(count 'RX EAPOL from')
-m1_rx=$(count 'RX message 1 of 4-Way')
-m2_sent=$(count 'Sending EAPOL-Key 2/4')
-m3_rx=$(count 'RX message 3 of 4-Way')
-m4_sent=$(count 'Sending EAPOL-Key 4/4')
-bad_psk=$(grep -ciE 'pre-shared key may be incorrect|MIC failure' "$log" 2>/dev/null || true)
-keyerr=$(dmesg 2>/dev/null | grep -iE 'set_stakey|set_bsskey|config_bss' | tail -5)
-
-say "---- handshake"
-say "EAPOL frames received : $eapol_rx"
-say "M1 received           : $m1_rx"
-say "M2 sent               : $m2_sent"
-say "M3 received           : $m3_rx"
-say "M4 sent               : $m4_sent"
-say "reason                : $(grep -o 'reason=[0-9]*' "$log" 2>/dev/null | tail -1)"
-[ -n "$keyerr" ] && { say "driver key errors:"; say "$keyerr"; }
-
-if [ "$connected" = 1 ]; then
-	iw dev wlan0 link
-	udhcpc -i wlan0 -q -n -t 10 >/dev/null 2>&1 || true
-	say "---- address"
-	ip -4 addr show wlan0 | sed -n 's/^ *inet /inet /p'
-else
-	# wpa_supplicant -dd is verbose; keep only the useful lines.
-	grep -E 'EAPOL|CTRL-EVENT|reason=|WPA:|4-Way|MIC' "$log" 2>/dev/null |
-		tail -20 | sed 's/^/  /'
-fi
-
-if [ "$connected" != 1 ]; then
+if [ -z "$won" ]; then
+	say "---- handshake"
+	say "EAPOL frames received : $(count 'RX EAPOL from')"
+	say "M1 received           : $(count 'RX message 1 of 4-Way')"
+	say "M2 sent               : $(count 'Sending EAPOL-Key 2/4')"
+	say "M3 received           : $(count 'RX message 3 of 4-Way')"
+	say "M4 sent               : $(count 'Sending EAPOL-Key 4/4')"
+	say "reason                : $(grep -o 'reason=[0-9]*' "$log" 2>/dev/null | tail -1)"
+	keyerr=$(dmesg 2>/dev/null |
+		grep -iE 'config bss|config_bss|set_stakey|set_bsskey' | tail -8)
+	[ -n "$keyerr" ] && { say "driver key/bss errors:"; say "$keyerr"; }
 	say "---- verdict"
-	if [ "$bad_psk" -gt 0 ]; then
-		say "PSK/MIC mismatch: the passphrase does not match this AP."
-	elif [ "$eapol_rx" -eq 0 ]; then
-		say "No EAPOL frame reached the host. This is not a password problem:"
-		say "the firmware queued/dropped M1. Check power save (it is off now),"
-		say "then retry with --legacy (HT/VHT off)."
-	elif [ "$m2_sent" -gt 0 ] && [ "$m3_rx" -eq 0 ]; then
-		say "M1 arrived and M2 was sent, but no M3 came back."
-		if [ -n "$keyerr" ]; then
-			say "The firmware rejected the key install (see dmesg above)."
-		else
-			say "Either the AP rejected M2 (wrong PSK) or M3 was dropped"
-			say "because the PTK never made it into the firmware."
-		fi
-	elif [ "$m4_sent" -eq 0 ]; then
-		say "M3 arrived but M4 was not sent: PTK/MIC check failed."
+	if ! grep -q 'CTRL-EVENT' "$log" 2>/dev/null; then
+		say "wpa_supplicant produced no control events - see $log"
+	elif ! grep -q 'RX EAPOL from' "$log" 2>/dev/null; then
+		say "No EAPOL frame reached the host (not a password problem)."
+		say "Check the driver errors above; M1 is stuck in the firmware."
 	else
-		say "Handshake reached an unexpected state; see the log excerpt."
+		say "EAPOL reached the host but the handshake did not finish;"
+		say "see the counters and driver errors above."
 	fi
 	say "full log: $log"
 	exit 1
 fi
 
-# ------------------------------------------------------- hand back to NM
+say "connected with variant: $won"
+iw dev wlan0 link
+udhcpc -i wlan0 -q -n -t 10 >/dev/null 2>&1 || true
+say "---- address"
+ip -4 addr show wlan0 | sed -n 's/^ *inet /inet /p'
+
 if [ "$save" = 1 ]; then
+	if [ "$won" != "ccmp" ]; then
+		say "note: NM cannot force '$won'; leaving the direct supplicant running."
+		say "RESULT: connected (direct wpa_supplicant, $won)"
+		exit 0
+	fi
 	name="c7-$(printf '%s' "$ssid" | tr -c 'A-Za-z0-9._-' '_')"
 	path=/etc/NetworkManager/system-connections/$name.nmconnection
 	mkdir -p /etc/NetworkManager/system-connections
@@ -232,11 +269,10 @@ if [ "$save" = 1 ]; then
 	say "saved NM profile: $path"
 
 	if ! command -v nmcli >/dev/null 2>&1; then
-		say "NetworkManager is not installed; profile saved, nothing to hand back"
+		say "NetworkManager is not installed; profile saved"
 		exit 0
 	fi
-	killall wpa_supplicant 2>/dev/null || true
-	sleep 1
+	stop_wpa
 	rc-service networkmanager start >/dev/null 2>&1 || true
 	i=0
 	while [ "$i" -lt 30 ]; do
@@ -250,8 +286,7 @@ if [ "$save" = 1 ]; then
 	case $(nmcli -g GENERAL.STATE dev show wlan0 2>/dev/null) in
 	*connected*) say "RESULT: connected via NetworkManager"; exit 0 ;;
 	esac
-	say "RESULT: the profile is saved but NetworkManager did not connect."
-	say "Run 'c7-wifi $ssid ****' (without --save) to use the direct path."
+	say "RESULT: profile saved but NetworkManager did not connect"
 	exit 1
 fi
 
