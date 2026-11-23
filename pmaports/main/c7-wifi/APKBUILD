@@ -1,0 +1,20 @@
+# Reference: <https://postmarketos.org/devicepkg>
+maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
+pkgname=c7-wifi
+pkgver=0.1
+pkgrel=0
+pkgdesc="Wireless tuning and NetworkManager-free connect helper for Galaxy C7"
+url="https://github.com/zhao20100913/nura-SM-C7000"
+arch="noarch"
+license="MIT"
+options="!check"
+depends="iw rfkill wpa_supplicant"
+source="
+	c7-wifi-tune
+	c7-wifi
+"
+
+package() {
+	install -Dm755 "$srcdir/c7-wifi-tune" "$pkgdir"/etc/init.d/c7-wifi-tune
+	install -Dm755 "$srcdir/c7-wifi" "$pkgdir"/usr/bin/c7-wifi
+}

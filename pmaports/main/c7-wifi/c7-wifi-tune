@@ -1,0 +1,24 @@
+#!/sbin/openrc-run
+description="Apply C7 wireless tuning: unblock rfkill, set regdomain, disable power save"
+
+depend() {
+	after networkmanager wpa_supplicant
+}
+
+start() {
+	ebegin "Tuning wlan0 (rfkill/regdomain/power save)"
+	i=0
+	while [ $i -lt 30 ]; do
+		[ -d /sys/class/net/wlan0 ] && break
+		sleep 1
+		i=$((i + 1))
+	done
+	rfkill unblock wifi >/dev/null 2>&1
+	# country=00 leaves every 5 GHz channel passive-only ("no IR"), which
+	# makes 5 GHz association unusable.  CN opens 36-64 / 149-165.
+	iw reg set CN >/dev/null 2>&1
+	if [ -d /sys/class/net/wlan0 ]; then
+		iw dev wlan0 set power_save off >/dev/null 2>&1
+	fi
+	eend 0
+}
