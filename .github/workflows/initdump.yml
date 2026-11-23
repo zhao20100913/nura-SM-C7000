@@ -1,0 +1,92 @@
+name: Dump initramfs tree
+
+# Read-only debug helper: unpack boot.img from an artifact and print the
+# initramfs tree, /init prologue and the setup_log / mount_proc_sys_dev
+# functions.  Used to find why the normal boot.img exits 1 on the C7.
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_id:
+        description: "artifact id that contains boot.img"
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Download artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AID: ${{ inputs.artifact_id }}
+        run: |
+          set -eu
+          gh api "/repos/${{ github.repository }}/actions/artifacts/$AID/zip" > a.zip
+          unzip -o -q a.zip -d art
+
+      - name: Dump initramfs
+        run: |
+          set -eu
+          python3 -m pip install --quiet zstandard
+          python3 - <<'PY'
+          import io, pathlib, struct
+          import zstandard
+
+          data = next(pathlib.Path("art").rglob("boot.img")).read_bytes()
+          u32 = lambda o: struct.unpack_from("<I", data, o)[0]
+          page, ksz, rsz = u32(36), u32(8), u32(16)
+          align = lambda n: (n + page - 1) // page * page
+          rd = data[align(1632) + align(ksz):][:rsz]
+          print("boot bytes", len(data), "page", page, "kernel", ksz,
+                "ramdisk", rsz, "magic", rd[:4].hex())
+          if rd[:4].hex() == "28b52ffd":
+              rd = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(rd)).read()
+          root = pathlib.Path("rd")
+          pos = 0
+          while pos + 110 <= len(rd):
+              hdr = rd[pos:pos + 110]
+              if hdr[:6] != b"070701":
+                  break
+              f = [int(hdr[6 + 8 * i:14 + 8 * i], 16) for i in range(13)]
+              name = rd[pos + 110:pos + 110 + f[11] - 1].decode()
+              body = (pos + 110 + f[11] + 3) & ~3
+              if name == "TRAILER!!!":
+                  break
+              p = root / name.lstrip("./")
+              mode = f[1]
+              if mode & 0o170000 == 0o040000:
+                  p.mkdir(parents=True, exist_ok=True)
+              elif mode & 0o170000 == 0o120000:
+                  p.parent.mkdir(parents=True, exist_ok=True)
+                  if p.is_symlink() or p.exists():
+                      p.unlink()
+                  p.symlink_to(rd[body:body + f[6]].decode())
+              else:
+                  p.parent.mkdir(parents=True, exist_ok=True)
+                  p.write_bytes(rd[body:body + f[6]])
+                  p.chmod(0o755 if mode & 0o111 else 0o644)
+              pos = (body + f[6] + 3) & ~3
+          print("entries parsed, unpacked to", root)
+          PY
+
+          echo "===== top-level"
+          find rd -maxdepth 1 -mindepth 1 -printf '%f %y\n' | sort
+          echo "===== base dirs"
+          for d in dev proc sys run tmp; do
+            if [ -e "rd/$d" ]; then echo "$d yes"; else echo "$d MISSING"; fi
+          done
+          echo "===== /dev"
+          ls -la rd/dev 2>/dev/null | head -20
+          echo "===== /init head"
+          head -30 rd/init
+          echo "===== setup_log"
+          sed -n '/^setup_log()/,/^}/p' rd/init_functions.sh
+          echo "===== mount_proc_sys_dev"
+          sed -n '/^mount_proc_sys_dev()/,/^}/p' rd/init_functions.sh
+          echo "===== busybox version"
+          file rd/bin/busybox 2>/dev/null || true
