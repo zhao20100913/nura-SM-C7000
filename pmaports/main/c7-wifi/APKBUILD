@@ -20,3 +20,9 @@ package() {
 	install -Dm755 "$srcdir/c7-wifi" "$pkgdir"/usr/bin/c7-wifi
 	install -Dm755 "$srcdir/c7-wifi-nwmm" "$pkgdir"/usr/bin/c7-wifi-nwmm
 }
+
+sha512sums="
+039f13121abee21e30cddf0cb830467a85e41dbf54701ecb98596358ede17fea00706617df5a1087aabdfa96e70ca026fca3df0ddcbcbd25fe6980ee9340f5a7  c7-wifi-tune
+92697620326864cf5cd40e05b6dc1e4487df09e12b23ed490bc1fa89976e2af03788943b8b3d3fbc7c2d31575f6ee975913b74fc8dc31b756ef13c6792b86f2c  c7-wifi
+edcf22b89a3d50662ae1a6183d6c99646fc84466dcde52f3de7ae86ad426e747d445913ee71f2580c114cdfbff55eb948ad6e1c475162b453e859ae9bc02f914  c7-wifi-nwmm
+"
