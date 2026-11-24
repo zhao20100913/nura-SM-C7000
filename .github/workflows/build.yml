@@ -266,6 +266,10 @@ jobs:
           sudo install -m 644 "$TMP" "$DIST/$NAME"
           ls -l "$DIST/$NAME"
           sha512sum "$DIST/$NAME"
+          # abuild does not accept SKIP for a plain tarball source; write the
+          # real hash of the repacked tarball so the recompute step keeps it.
+          HASH=$(sha512sum "$DIST/$NAME" | cut -d' ' -f1)
+          sed -i "s|SKIP  \$pkgname-v\$_tag.tar.gz|$HASH  \$pkgname-v\$_tag.tar.gz|" "$APKBUILD"
       - name: Recompute checksums
         run: |
           # Keeps the APKBUILDs valid when dts/, config or files change.
