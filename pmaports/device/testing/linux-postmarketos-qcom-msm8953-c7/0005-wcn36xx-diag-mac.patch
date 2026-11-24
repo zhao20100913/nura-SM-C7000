@@ -1,0 +1,81 @@
+--- a/drivers/net/wireless/ath/wcn36xx/main.c
++++ b/drivers/net/wireless/ath/wcn36xx/main.c
+@@ -24,6 +24,7 @@
+ #include <linux/rpmsg.h>
+ #include <linux/soc/qcom/smem_state.h>
+ #include <linux/soc/qcom/wcnss_ctrl.h>
++#include <linux/etherdevice.h>
+ #include <net/ipv6.h>
+ #include "wcn36xx.h"
+ #include "testmode.h"
+@@ -33,6 +34,10 @@
+ module_param_named(debug_mask, wcn36xx_dbg_mask, uint, 0644);
+ MODULE_PARM_DESC(debug_mask, "Debugging mask");
+ 
++static char *mac_override;
++module_param(mac_override, charp, 0644);
++MODULE_PARM_DESC(mac_override, "Permanent MAC override (aa:bb:cc:dd:ee:ff)");
++
+ #define CHAN2G(_freq, _idx) { \
+ 	.band = NL80211_BAND_2GHZ, \
+ 	.center_freq = (_freq), \
+@@ -1578,6 +1583,7 @@
+ 	void *wcnss;
+ 	int ret;
+ 	const u8 *addr;
++	u8 mac_ovr[ETH_ALEN];
+ 	int n_channels;
+ 
+ 	wcn36xx_dbg(WCN36XX_DBG_MAC, "platform probe\n");
+@@ -1636,14 +1642,20 @@
+ 		goto out_wq;
+ 	}
+ 
+-	addr = of_get_property(pdev->dev.of_node, "local-mac-address", &ret);
+-	if (addr && ret != ETH_ALEN) {
+-		wcn36xx_err("invalid local-mac-address\n");
+-		ret = -EINVAL;
+-		goto out_destroy_ept;
+-	} else if (addr) {
+-		wcn36xx_info("mac address: %pM\n", addr);
+-		SET_IEEE80211_PERM_ADDR(wcn->hw, addr);
++	if (mac_override && mac_pton(mac_override, mac_ovr)) {
++		wcn36xx_info("mac override: %pM\n", mac_ovr);
++		SET_IEEE80211_PERM_ADDR(wcn->hw, mac_ovr);
++	} else {
++		addr = of_get_property(pdev->dev.of_node, "local-mac-address",
++				       &ret);
++		if (addr && ret != ETH_ALEN) {
++			wcn36xx_err("invalid local-mac-address\n");
++			ret = -EINVAL;
++			goto out_destroy_ept;
++		} else if (addr) {
++			wcn36xx_info("mac address: %pM\n", addr);
++			SET_IEEE80211_PERM_ADDR(wcn->hw, addr);
++		}
+ 	}
+ 
+ 	ret = wcn36xx_platform_get_resources(wcn, pdev);
+--- a/drivers/net/wireless/ath/wcn36xx/smd.c
++++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+@@ -419,6 +419,9 @@
+ 					  &sta_params->supported_rates);
+ 		wcn36xx_smd_set_sta_default_ht_params(sta_params);
+ 	}
++	wcn36xx_info("sta params: aid=%u bssid_idx=%u sta_idx=%u mac=%pM\n",
++		     sta_params->aid, sta_params->bssid_index,
++		     sta_params->sta_index, sta_params->mac);
+ }
+ 
+ static int wcn36xx_smd_send_and_wait(struct wcn36xx *wcn, size_t len)
+@@ -1578,6 +1581,10 @@
+ 	bss->dtim_period = vif_priv->dtim_period;
+ 	if (!bss->dtim_period)
+ 		bss->dtim_period = 1;
++	wcn36xx_info("bss params: ssid_len=%u dtim=%u bi=%u ch=%u nw=%u bssid=%pM self=%pM\n",
++		     bss->ssid.length, bss->dtim_period,
++		     bss->beacon_interval, bss->oper_channel,
++		     bss->nw_type, bss->bssid, bss->self_mac_addr);
+ 
+ 	wcn36xx_smd_set_bss_ht_params(vif, sta, bss);
+ 
