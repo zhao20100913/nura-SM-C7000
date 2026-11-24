@@ -62,7 +62,7 @@ in_root() {
 # ------------------------------------------------------------------ packages
 log "dnf install"
 mapfile -t WANTED < <(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' -e 's/[[:space:]]//g' "$PKG_LIST")
-in_root dnf -y --setopt=install_weak_deps=False --skip-broken install "${WANTED[@]}"
+in_root dnf -y install --skip-broken "${WANTED[@]}"
 in_root dnf -y install sudo || true
 if ! in_root rpm -q phosh phoc gnome-session >/dev/null 2>&1 || ! in_root command -v phosh-session >/dev/null 2>&1; then
 	echo "Phosh packages missing from the Fedora repos" >&2
