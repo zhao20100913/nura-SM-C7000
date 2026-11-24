@@ -218,6 +218,9 @@ mkdir -p "$ROOT/lib/firmware"
 cp -a --remove-destination "$BASE/lib/firmware/." "$ROOT/lib/firmware/"
 in_root depmod -a "$KREL"
 
+log "generating SSH host keys"
+in_root ssh-keygen -A
+
 # ------------------------------------------------------------------ services
 log "enabling services"
 for unit in \

@@ -7,6 +7,9 @@ export GDK_BACKEND=wayland
 export MOZ_ENABLE_WAYLAND=1
 state_dir="$HOME/.local/state"
 mkdir -p "$state_dir"
+mkdir -p /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
+
 exec >>"$state_dir/gnome-session.log" 2>&1
 echo "=== $(date) starting GNOME"
 if ! command -v gnome-session >/dev/null 2>&1; then

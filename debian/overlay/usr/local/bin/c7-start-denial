@@ -18,6 +18,9 @@ state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/denial"
 mkdir -p "$state_dir"
 chmod 0700 "$state_dir"
 log="$state_dir/ubuntu-session.log"
+mkdir -p /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
+
 exec >>"$log" 2>&1
 
 printf '\n=== Ubuntu Denial session %s ===\n' "$(date -Iseconds)"

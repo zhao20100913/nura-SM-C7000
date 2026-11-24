@@ -1,3 +1,6 @@
+mkdir -p /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
+
 #!/bin/sh
 # Start the Phosh session on /dev/tty1 (see ../home/c7/.bash_profile).
 #
