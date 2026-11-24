@@ -1,9 +1,8 @@
 diff --git a/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
 new file mode 100644
-index 0000000..1b871c4
 --- /dev/null
 +++ b/arch/arm64/boot/dts/qcom/msm8953-samsung-c7lte.dts
-@@ -0,0 +1,534 @@
+@@ -0,0 +1,559 @@
 +// SPDX-License-Identifier: BSD-3-Clause
 +/*
 + * Samsung Galaxy C7 (SM-C7000, "c7lte") - mainline MSM8953 device tree
@@ -296,6 +295,13 @@ index 0000000..1b871c4
 +		bias-disable;
 +	};
 +
++	sm5705_fg_i2c_default: sm5705-fg-i2c-default-state {
++		pins = "gpio38", "gpio39";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
 +	sm5705_chg_int_default: sm5705-chg-int-default-state {
 +		pins = "gpio61";
 +		function = "gpio";
@@ -508,33 +514,51 @@ index 0000000..1b871c4
 + * not supported yet.
 + */
 +&{/} {
++	/* Charger/MUIC bus: SDA gpio98, SCL gpio99 (downstream i2c@8). */
 +	sm5705_i2c: i2c-sm5705 {
-+	compatible = "i2c-gpio";
-+	sda-gpios = <&tlmm 98 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-+	scl-gpios = <&tlmm 99 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
-+	i2c-gpio,delay-us = <2>;
-+	#address-cells = <1>;
-+	#size-cells = <0>;
++		compatible = "i2c-gpio";
++		sda-gpios = <&tlmm 98 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		scl-gpios = <&tlmm 99 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		i2c-gpio,delay-us = <2>;
++		#address-cells = <1>;
++		#size-cells = <0>;
 +
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&sm5705_i2c_default>;
-+
-+	charger@49 {
-+		compatible = "siliconmitus,sm5705-charger";
-+		reg = <0x49>;
-+		interrupt-parent = <&tlmm>;
-+		interrupts = <61 IRQ_TYPE_EDGE_FALLING>;
 +		pinctrl-names = "default";
-+		pinctrl-0 = <&sm5705_chg_int_default>;
++		pinctrl-0 = <&sm5705_i2c_default>;
++
++		charger@49 {
++			compatible = "siliconmitus,sm5705-charger";
++			reg = <0x49>;
++			interrupt-parent = <&tlmm>;
++			interrupts = <61 IRQ_TYPE_EDGE_FALLING>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&sm5705_chg_int_default>;
++		};
 +	};
 +
-+	fuel-gauge@71 {
-+		compatible = "siliconmitus,sm5705-fuelgauge";
-+		reg = <0x71>;
-+		interrupt-parent = <&tlmm>;
-+		interrupts = <62 IRQ_TYPE_EDGE_FALLING>;
++	/*
++	 * Fuel gauge bus is a separate bit-banged I2C: downstream i2c@11
++	 * uses SDA gpio39 / SCL gpio38 (not the charger bus).  Wiring the
++	 * gauge to 98/99 made it probe with -ENXIO.
++	 */
++	sm5705_fg_i2c: i2c-sm5705-fg {
++		compatible = "i2c-gpio";
++		sda-gpios = <&tlmm 39 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		scl-gpios = <&tlmm 38 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
++		i2c-gpio,delay-us = <2>;
++		#address-cells = <1>;
++		#size-cells = <0>;
++
 +		pinctrl-names = "default";
-+		pinctrl-0 = <&sm5705_fg_int_default>;
++		pinctrl-0 = <&sm5705_fg_i2c_default>;
++
++		fuel-gauge@71 {
++			compatible = "siliconmitus,sm5705-fuelgauge";
++			reg = <0x71>;
++			interrupt-parent = <&tlmm>;
++			interrupts = <62 IRQ_TYPE_EDGE_FALLING>;
++			pinctrl-names = "default";
++			pinctrl-0 = <&sm5705_fg_int_default>;
++		};
 +	};
-+};
 +};
