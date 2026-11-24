@@ -211,7 +211,11 @@ KREL=$(cat "$BASE/kernel-release")
 mkdir -p "$ROOT/lib/modules"
 cp -a "$BASE/lib/modules/$KREL" "$ROOT/lib/modules/"
 mkdir -p "$ROOT/lib/firmware"
-cp -a "$BASE/lib/firmware/." "$ROOT/lib/firmware/"
+# Debian's wireless-regdb already installed regulatory.db as a symlink;
+# overwriting it with the pmOS file must replace the link, not write
+# through it (cp otherwise fails with "not writing through dangling
+# symlink").
+cp -a --remove-destination "$BASE/lib/firmware/." "$ROOT/lib/firmware/"
 in_root depmod -a "$KREL"
 
 # ------------------------------------------------------------------ services
