@@ -74,7 +74,19 @@ in_root dnf -y install sudo || true
 # still provides the OSK Phosh expects.  Best effort: if its sonames moved,
 # maliit-keyboard remains installed as a fallback.
 SQUEEKBORD_RPM=https://kojipkgs.fedoraproject.org/packages/squeekboard/1.43.1/2.fc42/aarch64/squeekboard-1.43.1-2.fc42.aarch64.rpm
+in_root dnf -y install alternatives || true
 in_root dnf -y install --skip-unavailable --skip-broken "$SQUEEKBORD_RPM" || true
+# Phosh 0.54 requires the "sm.puri.OSK0" component, while squeekboard 1.43
+# ships sm.puri.Squeekboard.  Its alternatives link fails in the WSL base;
+# create the alias so gnome-session can find the OSK component.
+if [ ! -e "$ROOT/usr/share/applications/sm.puri.OSK0.desktop" ] && \
+   [ -e "$ROOT/usr/share/applications/sm.puri.Squeekboard.desktop" ]; then
+	mkdir -p "$ROOT/etc/alternatives"
+	ln -sf /usr/share/applications/sm.puri.Squeekboard.desktop \
+		"$ROOT/etc/alternatives/sm.puri.OSK0.desktop"
+	ln -sf /etc/alternatives/sm.puri.OSK0.desktop \
+		"$ROOT/usr/share/applications/sm.puri.OSK0.desktop"
+fi
 if ! in_root rpm -q phosh phoc gnome-session >/dev/null 2>&1 || ! in_root command -v phosh-session >/dev/null 2>&1; then
 	echo "Phosh packages missing from the Fedora repos" >&2
 	exit 1

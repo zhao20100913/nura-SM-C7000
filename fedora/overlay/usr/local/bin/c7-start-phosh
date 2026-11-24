@@ -13,6 +13,7 @@ set -u
 export C7_SESSION_STARTED=1
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=Phosh:GNOME
+export XDG_SESSION_DESKTOP=phosh
 export MOZ_ENABLE_WAYLAND=1
 export QT_QPA_PLATFORM=wayland
 export CLUTTER_BACKEND=wayland
@@ -27,13 +28,14 @@ fi
 # plain login shell instead.
 if [ ! -e /dev/dri/card0 ]; then
 	echo "c7-start-phosh: no /dev/dri/card0, staying on a shell" >&2
-	echo "c7-start-phosh: check dmesg for the s6e3fa3 panel and msm drm" >&2
-	exec bash -l
+	exec bash
 fi
 
 echo "c7-start-phosh: starting Phosh"
-if ! phosh-session; then
-	echo "c7-start-phosh: phosh-session exited with $?" >&2
-	echo "c7-start-phosh: dropping to a shell; logs: journalctl --user -b" >&2
-	exec bash -l
-fi
+phosh-session
+rc=$?
+echo "c7-start-phosh: phosh-session exited with $rc" >&2
+echo "c7-start-phosh: dropping to a shell; logs: journalctl --user -b" >&2
+# Non-login shell: a login shell would re-read .bash_profile and start the
+# session again, producing an endless "starting Phosh" loop.
+exec bash
