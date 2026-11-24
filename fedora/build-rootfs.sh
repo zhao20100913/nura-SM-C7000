@@ -62,8 +62,19 @@ in_root() {
 # ------------------------------------------------------------------ packages
 log "dnf install"
 mapfile -t WANTED < <(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' -e 's/[[:space:]]//g' "$PKG_LIST")
-in_root dnf -y install --skip-broken "${WANTED[@]}"
+INSTALL=()
+for pkg in "${WANTED[@]}"; do
+	in_root rpm -q "$pkg" >/dev/null 2>&1 && continue
+	INSTALL+=("$pkg")
+done
+in_root dnf -y install --skip-unavailable --skip-broken "${INSTALL[@]}"
 in_root dnf -y install sudo || true
+
+# Fedora 43 does not build squeekboard any more; the Fedora 42 arm64 RPM
+# still provides the OSK Phosh expects.  Best effort: if its sonames moved,
+# maliit-keyboard remains installed as a fallback.
+SQUEEKBORD_RPM=https://kojipkgs.fedoraproject.org/packages/squeekboard/1.43.1/2.fc42/aarch64/squeekboard-1.43.1-2.fc42.aarch64.rpm
+in_root dnf -y install --skip-unavailable --skip-broken "$SQUEEKBORD_RPM" || true
 if ! in_root rpm -q phosh phoc gnome-session >/dev/null 2>&1 || ! in_root command -v phosh-session >/dev/null 2>&1; then
 	echo "Phosh packages missing from the Fedora repos" >&2
 	exit 1

@@ -10,7 +10,7 @@ dnsmasq
 # Phosh
 phosh
 phoc
-squeekboard
+maliit-keyboard
 gnome-session
 gnome-settings-daemon
 gnome-keyring
