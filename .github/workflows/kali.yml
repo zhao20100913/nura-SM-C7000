@@ -32,7 +32,7 @@ on:
       rootfs_size_gb:
         description: "Initial ext4 image size in GiB (grown to fill USERDATA on first boot)"
         required: false
-        default: "3"
+        default: "6"
   push:
     branches: [ main ]
     paths:
@@ -57,7 +57,7 @@ jobs:
     env:
       DESKTOP: "gnome"
       BASE_ARTIFACT_ID: ${{ inputs.base_artifact_id }}
-      ROOTFS_SIZE_GB: ${{ inputs.rootfs_size_gb || '3' }}
+      ROOTFS_SIZE_GB: ${{ inputs.rootfs_size_gb || '6' }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
