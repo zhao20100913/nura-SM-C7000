@@ -42,9 +42,9 @@ fi
 run_denial() {
 	mode=$1
 	if [ "$mode" = "dbus" ]; then
-		dbus-run-session -- /usr/bin/denial-session --start-locked &
+		dbus-run-session -- /usr/bin/denial-session &
 	else
-		/usr/bin/denial-session --start-locked &
+		/usr/bin/denial-session &
 	fi
 	pid=$!
 	i=0
@@ -71,7 +71,7 @@ run_denial() {
 	return 124
 }
 
-echo "c7-start-denial: starting denial-session --start-locked"
+echo "c7-start-denial: starting denial-session"
 run_denial direct
 rc=$?
 if [ "$rc" -ne 0 ]; then
