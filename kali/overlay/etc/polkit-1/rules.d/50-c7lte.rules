@@ -1,0 +1,22 @@
+// A phone has exactly one user: let it drive the hardware without prompts.
+polkit.addRule(function(action, subject) {
+    if (subject.user != "c7") {
+        return null;
+    }
+    var prefixes = [
+        "org.freedesktop.NetworkManager.",
+        "org.freedesktop.ModemManager1.",
+        "org.freedesktop.login1.",
+        "org.freedesktop.udisks2.",
+        "org.freedesktop.timedate1.",
+        "org.freedesktop.hostname1.",
+        "org.freedesktop.locale1.",
+        "org.freedesktop.packagekit."
+    ];
+    for (var i = 0; i < prefixes.length; i++) {
+        if (action.id.indexOf(prefixes[i]) == 0) {
+            return polkit.Result.YES;
+        }
+    }
+    return null;
+});
