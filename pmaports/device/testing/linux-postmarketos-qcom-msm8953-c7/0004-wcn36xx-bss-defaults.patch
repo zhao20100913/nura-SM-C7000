@@ -1,0 +1,25 @@
+--- a/drivers/net/wireless/ath/wcn36xx/smd.c
++++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+@@ -397,7 +397,9 @@
+ 	sta_params->uapsd = 0;
+ 	sta_params->mimo_ps = WCN36XX_HAL_HT_MIMO_PS_STATIC;
+ 	sta_params->max_ampdu_duration = 0;
+-	sta_params->bssid_index = vif_priv->bss_index;
++	sta_params->bssid_index =
++		(vif_priv->bss_index == WCN36XX_HAL_BSS_INVALID_IDX) ?
++		0 : vif_priv->bss_index;
+ 	sta_params->p2p = 0;
+ 
+ 	if (sta) {
+@@ -1571,7 +1573,11 @@
+ 	bss->llg_coexist = 0;
+ 	bss->rifs_mode = 0;
+ 	bss->beacon_interval = vif->bss_conf.beacon_int;
++	if (!bss->beacon_interval)
++		bss->beacon_interval = 100;
+ 	bss->dtim_period = vif_priv->dtim_period;
++	if (!bss->dtim_period)
++		bss->dtim_period = 1;
+ 
+ 	wcn36xx_smd_set_bss_ht_params(vif, sta, bss);
+ 

@@ -1,10 +1,9 @@
 --- a/drivers/net/wireless/ath/wcn36xx/main.c
 +++ b/drivers/net/wireless/ath/wcn36xx/main.c
-@@ -826,13 +826,26 @@
+@@ -826,13 +826,19 @@
  
  		if (!is_zero_ether_addr(bss_conf->bssid)) {
  			vif_priv->is_joining = true;
-+			/* Never leave an old firmware BSS entry behind. */
 +			if (vif_priv->bss_index !=
 +			    WCN36XX_HAL_BSS_INVALID_IDX)
 +				wcn36xx_smd_delete_bss(wcn, vif);
@@ -15,21 +14,15 @@
  					 vif->addr, WCN36XX_HW_CHANNEL(wcn));
 -			wcn36xx_smd_config_bss(wcn, vif, NULL,
 -					       bss_conf->bssid, false);
-+			/*
-+			 * The C7 firmware (API 1.5.1.2) has only two BSS
-+			 * slots and rejects this pre-association ADD_BSS with
-+			 * MEM_FAIL (5), while still consuming a slot.  For
-+			 * station mode configure the BSS at
-+			 * BSS_CHANGED_ASSOC instead, where the SSID and AID
-+			 * are available.
-+			 */
++			/* The C7 firmware has two BSS slots and rejects the
++			 * pre-association ADD; configure at assoc instead. */
 +			if (vif->type != NL80211_IFTYPE_STATION)
 +				wcn36xx_smd_config_bss(wcn, vif, NULL,
 +						       bss_conf->bssid, false);
  		} else {
  			vif_priv->is_joining = false;
  			wcn36xx_smd_delete_bss(wcn, vif);
-@@ -859,6 +872,7 @@
+@@ -859,6 +865,7 @@
  		if (vif->cfg.assoc) {
  			struct ieee80211_sta *sta;
  			struct wcn36xx_sta *sta_priv;
@@ -37,26 +30,26 @@
  
  			wcn36xx_dbg(WCN36XX_DBG_MAC,
  				    "mac assoc bss %pM vif %pM AID=%d\n",
-@@ -887,9 +901,20 @@
+@@ -887,10 +894,19 @@
  			wcn36xx_smd_set_link_st(wcn, bss_conf->bssid,
  				vif->addr,
  				WCN36XX_HAL_LINK_POSTASSOC_STATE);
-+			update = vif_priv->bss_index !=
-+				 WCN36XX_HAL_BSS_INVALID_IDX;
-+			/*
-+			 * BSS_CHANGED_BEACON_INFO may not have arrived yet;
-+			 * a zero DTIM period is rejected by this firmware.
-+			 */
-+			if (!vif_priv->dtim_period)
-+				vif_priv->dtim_period = 1;
-+			wcn36xx_info("assoc bss %pM: %s (bss_index %d)\n",
-+				     bss_conf->bssid,
-+				     update ? "update" : "add",
-+				     vif_priv->bss_index);
- 			wcn36xx_smd_config_bss(wcn, vif, sta,
+-			wcn36xx_smd_config_bss(wcn, vif, sta,
 -					       bss_conf->bssid,
 -					       true);
-+					       bss_conf->bssid, update);
++			/* config_bss embeds the station parameters, so the AID
++			 * has to be set before the ADD, not after it. */
  			sta_priv->aid = vif->cfg.aid;
++			update = vif_priv->bss_index !=
++				 WCN36XX_HAL_BSS_INVALID_IDX;
++			if (!vif_priv->dtim_period)
++				vif_priv->dtim_period = 1;
++			wcn36xx_info("assoc bss %pM: %s (bss_index %d aid %d)\n",
++				     bss_conf->bssid,
++				     update ? "update" : "add",
++				     vif_priv->bss_index, sta_priv->aid);
++			wcn36xx_smd_config_bss(wcn, vif, sta,
++					       bss_conf->bssid, update);
  			/*
  			 * config_sta must be called from  because this is the
+ 			 * place where AID is available.
