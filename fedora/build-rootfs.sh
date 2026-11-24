@@ -37,6 +37,8 @@ QEMU=$(command -v qemu-aarch64-static || true)
 [ -n "$QEMU" ] || { echo "qemu-aarch64-static missing" >&2; exit 1; }
 cp "$QEMU" "$ROOT/usr/bin/qemu-aarch64-static"
 
+mkdir -p "$ROOT/dev" "$ROOT/dev/pts" "$ROOT/dev/shm" "$ROOT/proc" "$ROOT/sys" \
+	"$ROOT/run" "$ROOT/tmp" "$ROOT/var/tmp"
 mount --bind /dev "$ROOT/dev"
 mount -t devpts devpts "$ROOT/dev/pts"
 mount -t tmpfs tmpfs "$ROOT/dev/shm"
