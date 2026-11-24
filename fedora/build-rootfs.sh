@@ -96,6 +96,14 @@ in_root ssh-keygen -A || true
 
 # --------------------------------------------------------------- overlay
 log "overlay"
+# Fedora ships /usr/local/sbin as a symlink; the overlay contains a real
+# directory, and cp refuses to replace a symlink with a directory.
+for d in usr/local/bin usr/local/sbin; do
+	if [ -L "$ROOT/$d" ]; then
+		rm -f "$ROOT/$d"
+	fi
+	mkdir -p "$ROOT/$d"
+done
 cp -a "$HERE/overlay/." "$ROOT/"
 chmod 0755 "$ROOT/usr/local/bin/c7-start-phosh" \
 	"$ROOT/usr/local/bin/c7-start-denial" \
