@@ -38,7 +38,7 @@ on:
     paths:
       - "kali/**"
       - "scripts/patch-bootimg-cmdline.py"
-      - ".github/workflows/debian.yml"
+      - ".github/workflows/kali.yml"
 
 concurrency:
   group: kali-${{ github.ref }}
