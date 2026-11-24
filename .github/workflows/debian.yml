@@ -24,7 +24,7 @@ on:
         options:
           - phosh
           - denial
-        default: phosh
+        default: denial
       base_source:
         description: "Where the kernel/initramfs come from"
         type: choice
@@ -62,7 +62,7 @@ jobs:
     timeout-minutes: 240
 
     env:
-      DESKTOP: ${{ inputs.desktop || 'phosh' }}
+      DESKTOP: ${{ inputs.desktop || 'denial' }}
       BASE_ARTIFACT_ID: ${{ inputs.base_artifact_id }}
       ROOTFS_SIZE_GB: ${{ inputs.rootfs_size_gb || '3' }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
