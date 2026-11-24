@@ -1,10 +1,8 @@
 #!/bin/sh
 # Start the Denial session on /dev/tty1 (see ../home/c7/.bash_profile).
-#
-# The compositor may either exit or hang before it creates a Wayland socket
-# (bad seat, DRM or engine failure).  Both cases are detected, logged to
-# ~/.local/state/denial/ubuntu-session.log, and fall back to Phosh so the
-# phone still has a desktop.
+# DIAGNOSTIC BUILD: on failure this dumps the reason to the console so a
+# single photo shows the exact error, then drops to a plain shell instead of
+# silently falling back to Phosh.
 set -u
 
 export XDG_SESSION_TYPE=wayland
@@ -20,19 +18,53 @@ chmod 0700 "$state_dir"
 log="$state_dir/ubuntu-session.log"
 exec >>"$log" 2>&1
 
-printf '\n=== Ubuntu Denial session %s ===\n' "$(date -Iseconds)"
-echo "uid=$(id -u) tty=$(tty 2>/dev/null || echo none)"
+printf '\n=== Ubuntu Denial DIAG session %s ===\n' "$(date -Iseconds)"
+echo "uid=$(id -u) tty=$(tty 2>/dev/null || echo none) HOME=$HOME"
 echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
 echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+
+diag() {
+	# append hardware/system facts, then show the whole picture on screen
+	{
+		echo "===== cmdline ====="
+		cat /proc/cmdline 2>&1
+		echo
+		echo "===== /dev/dri ====="
+		ls -l /dev/dri 2>&1
+		echo "===== /sys/class/drm ====="
+		ls -l /sys/class/drm 2>&1
+		echo "===== msm/gpu modules ====="
+		lsmod 2>/dev/null | grep -Ei 'msm|a5xx|adreno|gpu|freedreno|kgsl' || echo "(none)"
+		echo "===== drm/gpu dmesg ====="
+		dmesg 2>/dev/null | grep -Ei 'drm|msm|a5xx|adreno|firmware|gpu|freedreno' | tail -30
+		echo "===== loginctl sessions ====="
+		loginctl list-sessions 2>&1
+		echo "===== user systemd ====="
+		systemctl --user is-system-running 2>&1
+	} >>"$log" 2>&1
+	echo "===== FAILURE LOG TAIL ====="
+	tail -70 "$log" > /dev/tty1 2>/dev/null || true
+	tail -70 "$log" > /dev/console 2>/dev/null || true
+}
+
+if ! command -v denial-session >/dev/null 2>&1; then
+	echo "c7-start-denial: denial-session NOT INSTALLED"
+	echo "ls /usr/bin/denial*:"; ls -l /usr/bin/denial* /usr/libexec/denial* 2>&1
+	diag
+	exec bash -l
+fi
+
 ls -l /dev/dri 2>&1
 ls -l "$XDG_RUNTIME_DIR" 2>&1 | head -20
 timeout 5 loginctl session-status 2>&1 | head -25
 timeout 5 systemctl --user is-system-running 2>&1
-timeout 20 /usr/bin/denial-session --check 2>&1 || true
+echo "===== denial-session --check ====="
+timeout 20 /usr/bin/denial-session --check 2>&1 || echo "(--check rc=$?)"
 
 if [ ! -e /dev/dri/card0 ]; then
 	echo "c7-start-denial: no /dev/dri/card0; panel/DRM did not bind" >&2
-	exec /usr/local/bin/c7-start-phosh
+	diag
+	exec bash -l
 fi
 
 run_denial() {
@@ -79,6 +111,6 @@ if [ "$rc" -eq 0 ]; then
 	exit 0
 fi
 
-echo "c7-start-denial: Denial failed (rc=$rc), falling back to Phosh"
-echo "c7-start-denial: full log: $log"
-exec /usr/local/bin/c7-start-phosh
+echo "c7-start-denial: Denial failed (rc=$rc), showing diagnostics"
+diag
+exec bash -l
