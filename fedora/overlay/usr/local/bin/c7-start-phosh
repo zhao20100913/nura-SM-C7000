@@ -1,0 +1,39 @@
+#!/bin/sh
+mkdir -p /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
+# Start the Phosh session on /dev/tty1 (see ../home/c7/.bash_profile).
+#
+# phosh-session is the canonical launcher shipped by the phosh package: it
+# execs phoc (the wlroots compositor) with -S and runs gnome-session inside.
+# It must run against the *user* bus that systemd-logind set up for this
+# session, because the shell itself is a systemd user unit
+# (sm.puri.Phosh.service) and refuses to start outside of it.
+set -u
+
+export C7_SESSION_STARTED=1
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=Phosh:GNOME
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM=wayland
+export CLUTTER_BACKEND=wayland
+
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+	DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+	export DBUS_SESSION_BUS_ADDRESS
+fi
+
+# No DRM device usually means the panel driver did not bind (or the DTB did
+# not match); starting phoc anyway only produces a crash loop, so stay on a
+# plain login shell instead.
+if [ ! -e /dev/dri/card0 ]; then
+	echo "c7-start-phosh: no /dev/dri/card0, staying on a shell" >&2
+	echo "c7-start-phosh: check dmesg for the s6e3fa3 panel and msm drm" >&2
+	exec bash -l
+fi
+
+echo "c7-start-phosh: starting Phosh"
+if ! phosh-session; then
+	echo "c7-start-phosh: phosh-session exited with $?" >&2
+	echo "c7-start-phosh: dropping to a shell; logs: journalctl --user -b" >&2
+	exec bash -l
+fi
