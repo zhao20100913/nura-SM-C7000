@@ -11,6 +11,7 @@ export XDG_SESSION_TYPE=wayland
 export XDG_SESSION_DESKTOP=Denial
 export XDG_CURRENT_DESKTOP=Denial
 export LIBSEAT_BACKEND=logind
+export DENIAL_SHELL_PROFILE="${DENIAL_SHELL_PROFILE:-mobile}"
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
 
