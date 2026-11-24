@@ -5,8 +5,8 @@
 maintainer="nura-c7 <nura-c7@users.noreply.github.com>"
 _flavor="postmarketos-qcom-msm8953-c7"
 pkgname=linux-$_flavor
-pkgver=7.1.3
-pkgrel=36
+pkgver=6.12.0
+pkgrel=1
 pkgdesc="Mainline kernel for the Samsung Galaxy C7 (SM-C7000), MSM8953"
 arch="aarch64"
 _carch="arm64"
@@ -31,20 +31,12 @@ makedepends="
 	python3
 "
 
-_tag="$pkgver-r0"
+_tag="6.12.0-r2"
 
 source="
 	$pkgname-v$_tag.tar.gz::$url/archive/v$_tag.tar.gz
 	config-$_flavor.aarch64
 	0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch
-	0002-wcn36xx-force-v0.patch
-	0003-wcn36xx-bss-leak.patch
-	0004-wcn36xx-bss-defaults.patch
-	0005-wcn36xx-diag-mac.patch
-	panel-samsung-s6e3fa3.c
-	melfas-mms449.c
-	sm5705-charger.c
-	sm5705-fuelgauge.c
 "
 builddir="$srcdir/linux-$_tag"
 
@@ -59,64 +51,7 @@ prepare() {
 	echo 'dtb-$(CONFIG_ARCH_QCOM) += msm8953-samsung-c7lte.dtb' \
 		>> arch/arm64/boot/dts/qcom/Makefile
 
-	# The S6E3FA3 panel driver is kept next to this APKBUILD (a new file
-	# in the kernel tree) so it can be reviewed on its own. Register it
-	# here for the same reason: no context lines to rot.
-	cp "$srcdir"/panel-samsung-s6e3fa3.c drivers/gpu/drm/panel/
-	echo 'obj-$(CONFIG_DRM_PANEL_SAMSUNG_S6E3FA3) += panel-samsung-s6e3fa3.o' \
-		>> drivers/gpu/drm/panel/Makefile
-	cat >> drivers/gpu/drm/panel/Kconfig <<-KCONF
-
-	config DRM_PANEL_SAMSUNG_S6E3FA3
-		tristate "Samsung S6E3FA3 AMS568HN31 panel"
-		depends on DRM_MIPI_DSI
-		help
-		  Say Y here if you want to enable support for the Samsung
-		  S6E3FA3 AMS568HN31 panel found in the Galaxy C7.
-	KCONF
-
-	# Same treatment for the MMS449 touchscreen driver.
-	cp "$srcdir"/melfas-mms449.c drivers/input/touchscreen/
-	echo 'obj-$(CONFIG_TOUCHSCREEN_MELFAS_MMS449) += melfas-mms449.o' \
-		>> drivers/input/touchscreen/Makefile
-	cat >> drivers/input/touchscreen/Kconfig <<-KCONF
-
-	config TOUCHSCREEN_MELFAS_MMS449
-		tristate "Melfas MMS449 touchscreen"
-		depends on I2C
-		help
-		  Say Y here if you have a Melfas MMS449 touch controller,
-		  as found in the Samsung Galaxy C7.
-	KCONF
-
-	# SM5705 charger (Samsung Galaxy C7).  Same treatment: driver file
-	# next to this APKBUILD, registered here instead of in the patch.
-	cp "$srcdir"/sm5705-charger.c drivers/power/supply/
-	echo 'obj-$(CONFIG_SM5705_CHARGER) += sm5705-charger.o' \
-		>> drivers/power/supply/Makefile
-	cat >> drivers/power/supply/Kconfig <<-KCONF
-
-	config SM5705_CHARGER
-		tristate "Silicon Mitus SM5705 charger"
-		depends on I2C
-		help
-		  Say Y to enable the SM5705 switching charger found in the
-		  Samsung Galaxy C7 (SM-C7000).
-	KCONF
-
-	# SM5705 fuel gauge, same scheme.
-	cp "$srcdir"/sm5705-fuelgauge.c drivers/power/supply/
-	echo 'obj-$(CONFIG_SM5705_FUELGAUGE) += sm5705-fuelgauge.o' \
-		>> drivers/power/supply/Makefile
-	cat >> drivers/power/supply/Kconfig <<-KCONF
-
-	config SM5705_FUELGAUGE
-		tristate "Silicon Mitus SM5705 fuel gauge"
-		depends on I2C
-		help
-		  Say Y to enable the SM5705 fuel gauge found in the Samsung
-		  Galaxy C7 (SM-C7000).
-	KCONF
+	make ARCH="$_carch" LLVM=1 olddefconfig
 }
 
 build() {
@@ -150,12 +85,4 @@ package() {
 sha512sums="\
 	a57d343c41065df0d41c7005aee07855e7d7aea592327f97c219d8109c10a60b08f54f494a132b4d1d3a549fb4dbffb523e8f49415c0905805f1332f4ddf2dcc  $pkgname-v$_tag.tar.gz \
 	d8d00104d8318d58d178a205c663362f7a535ac24aafcf6b80cfd13a1faeb3ab068dc9228ba4bdd3f6a2d8417f090e8023395e49fb37f3517aae4253217aafcc  config-postmarketos-qcom-msm8953-c7.aarch64 \
-	11290754304ab1002eb9d8bd22470e62238e07abfd3b8ae16f19074f9aebf2f2da63af4d99331f7d6bc1d0ed671e6db579f8a85cefcb1499466bc9395483e837  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch \
-	ead332ec9aceca5871e64239dd2f5037af3c3330ca9cb2080bfd7cd7048e2b68fb5ae376d7c81bc2153f527102977b6a1851330fbcf10128499fffaf5c510022  0002-wcn36xx-force-v0.patch \
-	c14c621ef7ecc0704d153ad8ff69c1a04167187a5745488b76e7f425abdeac58e64855164607b34d0ff4100e731ca4ffa7041091280b2dbcfdc08883c22be38a  0003-wcn36xx-bss-leak.patch \
-	98edc84362309d914e18b9d35daf413b43e7d8082d088ff0e1e794f502aaebd322dc91e1448d9360398285b97af1c0783d90521bea6671a952ca8d1a4313affb  0004-wcn36xx-bss-defaults.patch \
-	587d1c503b0e0df056001132027afffdc1c4619e2049c8763402fe6046749f5bf4a0f6ee6d0a37fd2ee355ebfc02948631fdc5007f86858c3dbc62bfacb1261a  0005-wcn36xx-diag-mac.patch \
-	ccd3ee219da9ee942c6375b23fbe953af3346f825a2065fd9ae06161c33bb1dda1e38d357bb4e42ea4c2bf9212955991870b21e530256305043c805a06bda97b  panel-samsung-s6e3fa3.c \
-	b74e2dc5fdc449bc82bef3744d56b59df0dc7269f79b2d905a5d2d93a83ea137bb8eac6324de061702c2cabcefd634ad787a99cfe3b3dc55187a67c9d52692e8  melfas-mms449.c \
-	39bbc4ed2a0661248125fecaea0aec2b447aa2e113e2a8d578f8de2ccd4c8bfe5f1c379c978f333369e99092557e2ce6d4ae8be325b4ce5eedba9e83299866ee  sm5705-charger.c \
-	21ebd2e153f57186678cc5eea5bac94dc588da3f38cd74f0d766099c20e1227ffef2d8ab52a7b6128d46967b6a6ae09ffa3f4f7e175bb0a4e854ea29d941ba15  sm5705-fuelgauge.c"
+	11290754304ab1002eb9d8bd22470e62238e07abfd3b8ae16f19074f9aebf2f2da63af4d99331f7d6bc1d0ed671e6db579f8a85cefcb1499466bc9395483e837  0001-arm64-dts-qcom-add-msm8953-samsung-c7lte.patch \"
