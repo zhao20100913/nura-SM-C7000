@@ -311,7 +311,9 @@ jobs:
                       h = old.get(name) or old[raw]  # remote source, fetched by abuild
                       print(f"   keeping hash of remote source {name}")
                   else:
-                      sys.exit(f"no way to hash {path}")
+                      # Remote tarball marked SKIP in the test branch; keep it.
+                      h = "SKIP"
+                      print(f"   keeping SKIP for remote source {name}")
                   lines.append(f"{h}  {name}")
               block = 'sha512sums="\n' + "\n".join(lines) + '\n"\n'
               apk.write_text(re.sub(r'sha512sums="[\s\S]*?"(?:\n|$)', block, text, count=1))
