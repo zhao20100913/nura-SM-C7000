@@ -1,4 +1,1 @@
-# tty1 autologin: start the GNOME session.
-if [ -x /usr/local/bin/c7-start-gnome ]; then
-	exec /usr/local/bin/c7-start-gnome
-fi
+# The graphical session is started by GDM (autologin); tty1 is a plain shell.

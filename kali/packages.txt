@@ -38,6 +38,7 @@ modemmanager
 # Kali base + GNOME
 kali-linux-core
 kali-desktop-gnome
+gdm3
 gnome
 gnome-tweaks
 gnome-shell-extension-manager

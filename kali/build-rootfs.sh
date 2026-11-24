@@ -231,6 +231,7 @@ in_root ssh-keygen -A
 log "enabling services"
 for unit in \
 	ssh.service \
+	gdm3.service \
 	NetworkManager.service \
 	bluetooth.service \
 	msm-firmware-loader.service \
