@@ -35,14 +35,20 @@ usbutils
 pciutils
 modemmanager
 
-# Kali base + GNOME
+# Kali base + Phosh
 kali-linux-core
-kali-desktop-gnome
-gdm3
-gnome
-gnome-tweaks
-gnome-shell-extension-manager
-maliit-keyboard
+phosh
+phoc
+phosh-core
+phosh-osk-stub
+squeekboard
+phosh-mobile-settings
+phosh-mobile-tweaks
+phosh-plugins
+feedbackd
+gnome-console
+gnome-settings-daemon
+gnome-keyring
 
 fonts-noto-cjk
 fonts-noto-core

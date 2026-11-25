@@ -1,1 +1,4 @@
-# The graphical session is started by GDM (autologin); tty1 is a plain shell.
+# tty1 autologin: start the Phosh session.
+if [ -x /usr/local/bin/c7-start-phosh ]; then
+	exec /usr/local/bin/c7-start-phosh
+fi
