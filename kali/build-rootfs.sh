@@ -234,6 +234,14 @@ fi
 chmod 0600 "$ROOT/etc/NetworkManager/system-connections/usb0.nmconnection"
 
 # ---------------------------------------------------- kernel modules/firmware
+# Phosh lists sm.puri.OSK0 as a required gnome-session component; the
+# Debian/Kali squeekboard only ships sm.puri.Squeekboard.  Drop it or
+# gnome-session exits right after the shell appears.
+SESS="$ROOT/usr/share/gnome-session/sessions/phosh.session"
+if [ -f "$SESS" ]; then
+	sed -i 's/;sm\.puri\.OSK0//g; s/sm\.puri\.OSK0;//g' "$SESS"
+fi
+
 log "installing kernel modules and firmware from $BASE"
 KREL=$(cat "$BASE/kernel-release")
 mkdir -p "$ROOT/lib/modules"
