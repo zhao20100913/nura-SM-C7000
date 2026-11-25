@@ -91,6 +91,10 @@ def pick_artifact(repo: str, token: str, wanted_id: str) -> dict:
         if a["name"].startswith("nura-c7-")
         and not a["expired"]
         and a["size_in_bytes"] > MIN_SIZE
+        # Only use artifacts from mainline builds.  Test kernels (e.g. the
+        # 6.12 WiFi image on branch k612) must never become the base for a
+        # desktop image: they have no panel/touch drivers.
+        and (a.get("workflow_run") or {}).get("head_branch") in (None, "main")
     ]
     candidates.sort(key=lambda a: a["created_at"], reverse=True)
     if not candidates:
