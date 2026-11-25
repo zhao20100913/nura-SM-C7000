@@ -40,7 +40,6 @@ kali-linux-core
 phosh
 phoc
 phosh-core
-phosh-osk-stub
 squeekboard
 phosh-mobile-settings
 phosh-mobile-tweaks
