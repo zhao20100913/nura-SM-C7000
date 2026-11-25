@@ -35,20 +35,13 @@ usbutils
 pciutils
 modemmanager
 
-# Kali base + Phosh
+# Kali base + XFCE (X11)
 kali-linux-core
-phosh
-gnome-session
-phoc
-phosh-core
-squeekboard
-phosh-mobile-settings
-phosh-mobile-tweaks
-phosh-plugins
-feedbackd
-gnome-console
-gnome-settings-daemon
-gnome-keyring
+kali-desktop-xfce
+xserver-xorg
+xserver-xorg-legacy
+xinit
+xserver-xorg-input-libinput
 
 fonts-noto-cjk
 fonts-noto-core

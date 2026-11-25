@@ -1,0 +1,19 @@
+#!/bin/sh
+# Start XFCE on tty1 over Xorg (no Wayland/Phosh/gnome-session).
+set -u
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=XFCE
+mkdir -p /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
+mkdir -p "$HOME/.local/state"
+exec >>"$HOME/.local/state/xfce-session.log" 2>&1
+echo "=== $(date) starting XFCE"
+if [ ! -e /dev/dri/card0 ]; then
+	echo "no /dev/dri/card0"
+	exec bash
+fi
+startx /usr/bin/startxfce4 -- :0 -keeptty
+rc=$?
+echo "xfce/startx exited with $rc"
+exec bash

@@ -224,6 +224,7 @@ chown -R "$UID_:$GID_" "$ROOT/home/$USERNAME"
 chmod 0755 "$ROOT/usr/local/bin/c7-start-phosh" \
 	"$ROOT/usr/local/bin/c7-start-denial" \
 	"$ROOT/usr/local/bin/c7-start-gnome" \
+	"$ROOT/usr/local/bin/c7-start-xfce" \
 	"$ROOT/usr/local/sbin/c7-usb-gadget.sh"
 chmod 0755 "$ROOT/usr/bin/c7-screen"
 if [ -f "$ROOT/usr/local/src/c7-pwrkey.c" ]; then
@@ -263,6 +264,9 @@ log "generating SSH host keys"
 in_root ssh-keygen -A
 
 # ------------------------------------------------------------------ services
+log "masking lightdm (XFCE starts from tty1)"
+in_root systemctl mask lightdm >/dev/null 2>&1 || true
+
 log "enabling services"
 for unit in \
 	ssh.service \

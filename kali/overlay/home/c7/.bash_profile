@@ -1,4 +1,4 @@
-# tty1 autologin: start the Phosh session.
-if [ -x /usr/local/bin/c7-start-phosh ]; then
-	exec /usr/local/bin/c7-start-phosh
+# tty1 autologin: start XFCE over Xorg.
+if [ -x /usr/local/bin/c7-start-xfce ]; then
+	exec /usr/local/bin/c7-start-xfce
 fi
