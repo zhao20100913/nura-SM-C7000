@@ -1,0 +1,18 @@
+#!/bin/sh
+# Start DDE (Deepin Desktop Environment) on tty1 over Xorg.
+set -u
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export XDG_SESSION_TYPE=x11
+export XDG_CURRENT_DESKTOP=DDE
+export XDG_SESSION_DESKTOP=dde
+mkdir -p "$HOME/.local/state"
+exec >>"$HOME/.local/state/deepin-session.log" 2>&1
+echo "=== $(date) starting DDE (X11)"
+if [ ! -e /dev/dri/card0 ]; then
+	echo "no /dev/dri/card0"
+	exec bash
+fi
+startx /usr/bin/dde-session -- :0 -keeptty
+rc=$?
+echo "dde-session/startx exited with $rc"
+exec bash

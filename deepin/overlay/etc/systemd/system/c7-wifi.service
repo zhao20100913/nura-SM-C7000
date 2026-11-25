@@ -1,0 +1,14 @@
+[Unit]
+Description=Load the WCN36xx WiFi driver once vendor firmware is available
+After=msm-firmware-loader.service
+Before=NetworkManager.service
+ConditionPathExists=/sys/class/ieee80211
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/sbin/modprobe qcom_wcnss_pil
+ExecStart=/sbin/modprobe wcn36xx
+
+[Install]
+WantedBy=multi-user.target
