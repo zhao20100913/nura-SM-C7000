@@ -84,16 +84,30 @@ in_root() {
 }
 
 # ---------------------------------------------------------------- packages
-# debootstrap ran with --no-check-gpg.  The Kali archive key is not in the
-# WSL/noble keyring, so allow unsigned repositories for this build.
-log "allowing unsigned Kali repositories"
-mkdir -p "$ROOT/etc/apt/apt.conf.d"
-cat > "$ROOT/etc/apt/apt.conf.d/99kali-insecure" <<'EOF'
+# debootstrap ran with --no-check-gpg.  Install the current Kali archive
+# keyring, then fall back to allowing unsigned repositories only if the
+# keyring cannot make the InRelease verify.
+log "installing the Kali archive keyring"
+KEYDIR="${MIRROR%/}/pool/main/k/kali-archive-keyring"
+KEYDEB=$(curl -fsSL "$KEYDIR/" 2>/dev/null |
+	grep -oE 'kali-archive-keyring_[^"<>]+_all\.deb' |
+	sort -u | tail -n1 || true)
+if [ -n "$KEYDEB" ]; then
+	echo "keyring: $KEYDEB"
+	curl -fsSL -o "$ROOT/tmp/kali-keyring.deb" "$KEYDIR/$KEYDEB"
+	in_root dpkg -i /tmp/kali-keyring.deb || true
+fi
+
+log "apt-get update"
+if ! in_root apt-get update; then
+	log "signed update failed; allowing unsigned Kali repositories"
+	mkdir -p "$ROOT/etc/apt/apt.conf.d"
+	cat > "$ROOT/etc/apt/apt.conf.d/99kali-insecure" <<'EOF'
 Acquire::AllowInsecureRepositories "true";
 Acquire::AllowDowngradeToInsecureRepositories "true";
 EOF
-log "apt-get update"
-in_root apt-get update || true
+	in_root apt-get update || true
+fi
 
 # Drop package names that this mirror/release does not know instead of failing
 # the whole build over a typo or a package that moved to another component.
