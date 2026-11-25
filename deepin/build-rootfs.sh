@@ -53,7 +53,7 @@ else
 rm -rf "$ROOT"
 mkdir -p "$ROOT"
 for attempt in 1 2 3; do
-	if debootstrap --arch=arm64 --variant=minbase --components=main,community \
+	if debootstrap --arch=arm64 --variant=minbase --components=main,community,commercial \
 		--include=ca-certificates,apt-utils,gnupg --no-check-gpg "$RELEASE" "$ROOT" "$MIRROR"; then
 		break
 	fi
@@ -64,7 +64,7 @@ done
 fi
 
 cat > "$ROOT/etc/apt/sources.list" <<EOF
-deb $MIRROR $RELEASE main community
+deb $MIRROR $RELEASE main community commercial
 EOF
 
 cp "$QEMU" "$ROOT/usr/bin/qemu-aarch64-static"
@@ -84,15 +84,16 @@ in_root() {
 }
 
 # ---------------------------------------------------------------- packages
-# debootstrap ran with --no-check-gpg; install the Kali keyring before the
-# normal, verified apt update.
-log "installing kali-archive-keyring"
-in_root apt-get -o Acquire::AllowInsecureRepositories=true \
-	-o Acquire::Check-Valid-Until=false update || true
-in_root apt-get -y --allow-unauthenticated install kali-archive-keyring || true
-
+# The deepin archive key is not in the debootstrap keyring; allow unsigned
+# repositories for this build.
+log "allowing unsigned deepin repositories"
+mkdir -p "$ROOT/etc/apt/apt.conf.d"
+cat > "$ROOT/etc/apt/apt.conf.d/99deepin-insecure" <<'EOF'
+Acquire::AllowInsecureRepositories "true";
+Acquire::AllowDowngradeToInsecureRepositories "true";
+EOF
 log "apt-get update"
-in_root apt-get update
+in_root apt-get update || true
 
 # Drop package names that this mirror/release does not know instead of failing
 # the whole build over a typo or a package that moved to another component.
