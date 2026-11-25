@@ -16,7 +16,13 @@ sudo
 openssh-server
 
 # Deepin desktop (core only; extras pulls the whole app suite)
-deepin-desktop-environment-core
+xfce4
+xfce4-session
+xfce4-terminal
+xserver-xorg
+xserver-xorg-legacy
+xinit
+xserver-xorg-input-libinput
 
 # X11 session
 xserver-xorg
