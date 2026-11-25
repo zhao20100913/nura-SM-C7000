@@ -143,6 +143,11 @@ KREL=$(cat "$BASE/kernel-release")
 mkdir -p "$ROOT/lib/modules" "$ROOT/lib/firmware"
 cp -a "$BASE/lib/modules/$KREL" "$ROOT/lib/modules/"
 cp -a --remove-destination "$BASE/lib/firmware/." "$ROOT/lib/firmware/"
+if [ -d "$BASE/usr/bin" ]; then
+	mkdir -p "$ROOT/usr/bin"
+	cp -a "$BASE/usr/bin/." "$ROOT/usr/bin/"
+	chmod 0755 "$ROOT/usr/bin/msm-firmware-loader"*.sh 2>/dev/null || true
+fi
 in_root depmod -a "$KREL" || true
 
 # ------------------------------------------------------------------ services

@@ -244,6 +244,11 @@ mkdir -p "$ROOT/lib/firmware"
 # through it (cp otherwise fails with "not writing through dangling
 # symlink").
 cp -a --remove-destination "$BASE/lib/firmware/." "$ROOT/lib/firmware/"
+if [ -d "$BASE/usr/bin" ]; then
+	mkdir -p "$ROOT/usr/bin"
+	cp -a "$BASE/usr/bin/." "$ROOT/usr/bin/"
+	chmod 0755 "$ROOT/usr/bin/msm-firmware-loader"*.sh 2>/dev/null || true
+fi
 in_root depmod -a "$KREL"
 
 log "generating SSH host keys"
