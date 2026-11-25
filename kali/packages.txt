@@ -38,6 +38,7 @@ modemmanager
 # Kali base + Phosh
 kali-linux-core
 phosh
+gnome-session
 phoc
 phosh-core
 squeekboard
