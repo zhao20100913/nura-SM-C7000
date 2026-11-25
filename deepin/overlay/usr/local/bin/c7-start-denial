@@ -1,0 +1,87 @@
+#!/bin/sh
+# Start the Denial session on /dev/tty1 (see ../home/c7/.bash_profile).
+#
+# The compositor may either exit or hang before it creates a Wayland socket
+# (bad seat, DRM or engine failure).  Both cases are detected, logged to
+# ~/.local/state/denial/ubuntu-session.log, and fall back to Phosh so the
+# phone still has a desktop.
+set -u
+
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=Denial
+export XDG_CURRENT_DESKTOP=Denial
+export LIBSEAT_BACKEND=logind
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
+
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/denial"
+mkdir -p "$state_dir"
+chmod 0700 "$state_dir"
+log="$state_dir/ubuntu-session.log"
+mkdir -p /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
+
+exec >>"$log" 2>&1
+
+printf '\n=== Ubuntu Denial session %s ===\n' "$(date -Iseconds)"
+echo "uid=$(id -u) tty=$(tty 2>/dev/null || echo none)"
+echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR"
+echo "DBUS_SESSION_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS"
+ls -l /dev/dri 2>&1
+ls -l "$XDG_RUNTIME_DIR" 2>&1 | head -20
+timeout 5 loginctl session-status 2>&1 | head -25
+timeout 5 systemctl --user is-system-running 2>&1
+timeout 20 /usr/bin/denial-session --check 2>&1 || true
+
+if [ ! -e /dev/dri/card0 ]; then
+	echo "c7-start-denial: no /dev/dri/card0; panel/DRM did not bind" >&2
+	exec /usr/local/bin/c7-start-phosh
+fi
+
+run_denial() {
+	mode=$1
+	if [ "$mode" = "dbus" ]; then
+		dbus-run-session -- /usr/bin/denial-session --start-locked &
+	else
+		/usr/bin/denial-session --start-locked &
+	fi
+	pid=$!
+	i=0
+	while [ "$i" -lt 25 ]; do
+		if ! kill -0 "$pid" 2>/dev/null; then
+			wait "$pid"
+			rc=$?
+			echo "$mode: exited rc=$rc after ${i}s"
+			return "$rc"
+		fi
+		if ls "$XDG_RUNTIME_DIR"/wayland-* >/dev/null 2>&1; then
+			echo "$mode: wayland socket up after ${i}s"
+			wait "$pid"
+			rc=$?
+			echo "$mode: exited rc=$rc"
+			return "$rc"
+		fi
+		sleep 1
+		i=$((i + 1))
+	done
+	echo "$mode: no wayland socket after 25s, killing pid $pid"
+	kill "$pid" 2>/dev/null || true
+	wait "$pid" 2>/dev/null || true
+	return 124
+}
+
+echo "c7-start-denial: starting denial-session --start-locked"
+run_denial direct
+rc=$?
+if [ "$rc" -ne 0 ]; then
+	echo "c7-start-denial: retrying with dbus-run-session"
+	run_denial dbus
+	rc=$?
+fi
+if [ "$rc" -eq 0 ]; then
+	exit 0
+fi
+
+echo "c7-start-denial: Denial failed (rc=$rc), falling back to Phosh"
+echo "c7-start-denial: full log: $log"
+exec /usr/local/bin/c7-start-phosh

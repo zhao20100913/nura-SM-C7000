@@ -1,0 +1,243 @@
+name: Build Deepin 23 (DDE) for SM-C7000
+
+# Builds a Debian 13 (trixie) + DenialWM (or Phosh) flash package for the Samsung
+# Galaxy C7 SM-C7000 (c7lte, MSM8953).  No LK2nd: the kernel, initramfs and
+# QCDT device tree come from this repository's own "Build Nura for SM-C7000"
+# workflow (see deepin/README.md), the user space is a Deepin beige (DDE) rootfs
+# root filesystem.
+#
+# Outputs (artifact "deepin-c7-<run>"):
+#   deepin-boot.img           Android boot v0 image, QCDT + SEANDROIDENFORCE,
+#                             cmdline patched to the root filesystem UUID
+#   deepin-c7lte-root.img     ext4 image for the USERDATA partition
+#   SHA256SUMS, verify.log, SOURCE_ARTIFACT.json
+#
+# Flash with heimdall (see deepin/README.md):
+#   heimdall flash --BOOT deepin-boot.img --USERDATA deepin-c7lte-root.img
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_source:
+        description: "Where the kernel/initramfs come from"
+        type: choice
+        options:
+          - artifact
+          - source
+        default: artifact
+      base_artifact_id:
+        description: "pmOS artifact id (empty = newest nura-c7-* artifact)"
+        required: false
+        default: ""
+      rootfs_size_gb:
+        description: "Initial ext4 image size in GiB (grown to fill USERDATA on first boot)"
+        required: false
+        default: "6"
+  push:
+    branches: [ main ]
+    paths:
+      - "deepin/**"
+      - "scripts/patch-bootimg-cmdline.py"
+      - ".github/workflows/deepin.yml"
+
+concurrency:
+  group: deepin-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build:
+    name: Deepin rootfs + boot image (aarch64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    env:
+      DESKTOP: "deepin"
+      BASE_ARTIFACT_ID: ${{ inputs.base_artifact_id }}
+      ROOTFS_SIZE_GB: ${{ inputs.rootfs_size_gb || '6' }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /mnt/swapfile || true
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /usr/local/share/boost /opt/hostedtoolcache/CodeQL \
+                      /usr/local/share/powershell /usr/share/swift || true
+          df -h /
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-user-static binfmt-support debootstrap \
+            e2fsprogs rsync python3 zstd xz-utils curl unzip
+
+      - name: Enable arm64 emulation
+        run: |
+          sudo update-binfmts --enable qemu-aarch64 || true
+          ls -l /proc/sys/fs/binfmt_misc/qemu-aarch64
+          cat /proc/sys/fs/binfmt_misc/qemu-aarch64
+
+      # ----------------------------------------------------------------- base
+      - name: Fetch boot.img + root.img from the Nura CI artifact
+        if: inputs.base_source != 'source'
+        run: python3 deepin/fetch-base.py base
+
+      - name: Build boot.img + root.img with pmbootstrap (fallback)
+        if: inputs.base_source == 'source'
+        run: ./deepin/build-base.sh base
+
+      - name: Extract kernel modules, firmware and the firmware loader
+        run: |
+          sudo chmod -R a+rX base
+          sudo bash ./deepin/extract-base.sh base base-extract
+          sudo chown -R "$USER" base-extract
+
+      # --------------------------------------------------------------- rootfs
+      - name: Build the Deepin root filesystem
+        run: |
+          set -o pipefail
+          sudo DESKTOP="$DESKTOP" bash ./deepin/build-rootfs.sh rootfs base-extract | tee rootfs.log
+
+      - name: Create the ext4 root image
+        run: |
+          mkdir -p out
+          sudo bash ./deepin/make-image.sh rootfs "out/deepin-c7lte-root.img" "$ROOTFS_SIZE_GB"
+          sudo chown "$USER" out/*
+
+      # ---------------------------------------------------------------- image
+      - name: Patch the boot image for the Deepin root filesystem
+        run: |
+          python3 scripts/patch-bootimg-cmdline.py \
+            --input base/boot.img \
+            --output out/deepin-boot.img \
+            --root-uuid "$(cat out/deepin-c7lte-root.img.uuid)" \
+            --drop lk2nd.pass-ramoops
+
+      - name: Fix early initramfs (boot.img) for the C7
+        # Same prologue as the pmOS build: /init dies in setup_log() on the
+        # C7 unless /dev and /proc are ready before the logging redirect.
+        run: |
+          python3 -m pip install --quiet zstandard
+          python3 - <<'PY'
+          import io, pathlib, struct
+          import zstandard
+
+          p = pathlib.Path("out/deepin-boot.img")
+          data = p.read_bytes()
+          assert data[:8] == b"ANDROID!", data[:8]
+          u32 = lambda o: struct.unpack_from("<I", data, o)[0]
+          page, ksz, rsz = u32(36), u32(8), u32(16)
+          align = lambda n: (n + page - 1) // page * page
+          koff = align(1632)
+          roff = koff + align(ksz)
+          soff = roff + align(rsz)
+          tail = data[soff:]
+          rd = data[roff:soff][:rsz]
+          if rd[:4].hex() == "28b52ffd":
+              rd = zstandard.ZstdDecompressor().stream_reader(io.BytesIO(rd)).read()
+          else:
+              import gzip
+              rd = gzip.decompress(rd)
+
+          pos, entries = 0, []
+          while pos + 110 <= len(rd):
+              hdr = rd[pos:pos + 110]
+              assert hdr[:6] == b"070701", hdr[:6]
+              f = [int(hdr[6 + 8 * i:14 + 8 * i], 16) for i in range(13)]
+              name = rd[pos + 110:pos + 110 + f[11] - 1].decode()
+              body = (pos + 110 + f[11] + 3) & ~3
+              entries.append([f, name, rd[body:body + f[6]]])
+              pos = (body + f[6] + 3) & ~3
+              if name == "TRAILER!!!":
+                  break
+
+          prologue = (b"/bin/busybox mkdir -p /dev /proc\n"
+                      b"/bin/busybox mount -t devtmpfs dev /dev 2>/dev/null\n"
+                      b"exec >/dev/kmsg 2>&1\n")
+          done = False
+          for e in entries:
+              if e[1].lstrip("./") == "init":
+                  if prologue not in e[2]:
+                      nl = e[2].find(b"\n")
+                      assert nl > 0
+                      e[2] = e[2][:nl + 1] + prologue + e[2][nl + 1:]
+                  assert prologue in e[2]
+                  done = True
+          assert done, "no init in initramfs"
+
+          out = b""
+          for f, name, body in entries:
+              f = list(f)
+              f[6] = len(body)
+              nb = name.encode() + b"\0"
+              f[11] = len(nb)
+              out += b"070701" + b"".join(b"%08X" % v for v in f) + nb
+              out += b"\0" * ((4 - len(out) % 4) % 4)
+              out += body + b"\0" * ((4 - len(body) % 4) % 4)
+
+          new_rd = zstandard.ZstdCompressor(level=10).compress(out)
+          hdr = bytearray(data[:1632])
+          struct.pack_into("<I", hdr, 16, len(new_rd))
+          img = (bytes(hdr) + b"\0" * (align(1632) - 1632)
+                 + data[koff:koff + ksz] + b"\0" * (align(ksz) - ksz)
+                 + new_rd + b"\0" * (align(len(new_rd)) - len(new_rd))
+                 + tail)
+          p.write_bytes(img)
+          print("deepin-boot.img init prologue inserted,", len(img), "bytes")
+          PY
+
+      - name: Verify the flash package
+        run: |
+          python3 deepin/verify.py out/deepin-boot.img out/deepin-c7lte-root.img \
+            out/deepin-c7lte-root.img.uuid | tee out/verify.log
+          cp base/SOURCE_ARTIFACT.json out/ || true
+
+      - name: Checksums and sizes
+        run: |
+          cd out
+          sha256sum deepin-boot.img deepin-c7lte-root.img > SHA256SUMS
+          cat SHA256SUMS
+          ls -lh
+        # The build log of the pmbootstrap fallback is useful, keep it small.
+      - name: Collect logs
+        if: always()
+        run: |
+          mkdir -p out
+          [ -f rootfs.log ] && cp rootfs.log out/ || true
+
+      - name: Upload the flash package
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepin-c7-${{ github.run_number }}
+          path: out/
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## Deepin 23 (DDE) for SM-C7000"
+            echo
+            echo "| file | size | sha256 |"
+            echo "| --- | --- | --- |"
+            [ -f out/SHA256SUMS ] && while read -r sum name; do
+              size=$(du -h "out/$name" | cut -f1)
+              echo "| \`$name\` | $size | \`$sum\` |"
+            done < out/SHA256SUMS
+            echo
+            echo "Flash with heimdall:"
+            echo '```'
+            echo "heimdall flash --BOOT deepin-boot.img --USERDATA deepin-c7lte-root.img"
+            echo '```'
+            echo
+            echo "First boot: user \`c7\`, password \`147147\`; ssh over USB at 172.16.42.1."
+          } >> "$GITHUB_STEP_SUMMARY"

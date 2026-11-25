@@ -1,0 +1,25 @@
+# The initramfs already put the USB gadget network on 172.16.42.1/24 (that is
+# the postmarketOS convention: the host becomes 172.16.42.2 and can ssh in).
+# NetworkManager takes over the interface after switch_root; keep the address
+# but never route the default traffic through the USB cable.
+[connection]
+id=usb0
+uuid=7b1f0e9c-4c2a-4f4a-9c2e-c7c700000001
+type=ethernet
+interface-name=usb0
+autoconnect=true
+autoconnect-priority=100
+permissions=
+
+[ethernet]
+mac-address-blacklist=
+
+[ipv4]
+method=manual
+address1=172.16.42.1/24
+never-default=true
+may-fail=true
+
+[ipv6]
+method=disabled
+addr-gen-mode=stable-privacy

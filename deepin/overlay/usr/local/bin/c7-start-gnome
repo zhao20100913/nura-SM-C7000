@@ -1,0 +1,19 @@
+#!/bin/sh
+# Start a GNOME session on tty1 (launched by getty autologin + .bash_profile).
+export XDG_RUNTIME_DIR=/run/user/1000
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=GNOME
+export GDK_BACKEND=wayland
+export MOZ_ENABLE_WAYLAND=1
+state_dir="$HOME/.local/state"
+mkdir -p "$state_dir"
+mkdir -p /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp/.X11-unix 2>/dev/null || true
+
+exec >>"$state_dir/gnome-session.log" 2>&1
+echo "=== $(date) starting GNOME"
+if ! command -v gnome-session >/dev/null 2>&1; then
+	echo "gnome-session missing"
+	exit 1
+fi
+exec dbus-run-session -- gnome-session
