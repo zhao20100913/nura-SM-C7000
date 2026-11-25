@@ -1,0 +1,11 @@
+[Unit]
+Description=Galaxy C7 power-key display toggle
+After=multi-user.target
+
+[Service]
+ExecStart=/usr/sbin/c7-pwrkey
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

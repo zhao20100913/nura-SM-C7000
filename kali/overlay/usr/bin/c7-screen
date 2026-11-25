@@ -1,0 +1,84 @@
+#!/bin/sh
+# c7-screen off|on|toggle - blank or unblank the C7 display.
+#
+# Runs as the phosh user.  wlopm uses wlr-output-power-management (what
+# phoc implements for screen blanking); wlr-randr is kept as a fallback.
+set -u
+
+ACTION=${1:-toggle}
+RUNTIME=${XDG_RUNTIME_DIR:-/run/user/1000}
+STATE=/run/c7-screen.state
+LOG=/var/log/c7-screen.log
+OUT=DSI-1
+
+export XDG_RUNTIME_DIR="$RUNTIME"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=$RUNTIME/bus"
+for s in "$RUNTIME"/wayland-*; do
+	if [ -S "$s" ]; then
+		WAYLAND_DISPLAY=$(basename "$s")
+		export WAYLAND_DISPLAY
+		break
+	fi
+done
+
+echo "=== $(date '+%F %T') action=$ACTION uid=$(id -u) display=${WAYLAND_DISPLAY:-none}" >>"$LOG" 2>&1
+exec >>"$LOG" 2>&1
+
+if command -v wlr-randr >/dev/null 2>&1; then
+	name=$(wlr-randr 2>/dev/null | awk 'NF && $1 !~ /^--/ {print $1; exit}')
+	[ -n "${name:-}" ] && OUT=$name
+fi
+echo "output=$OUT"
+
+cur=$(cat "$STATE" 2>/dev/null || echo on)
+if [ "$ACTION" = toggle ]; then
+	if [ "$cur" = off ]; then ACTION=on; else ACTION=off; fi
+fi
+
+# X11 sessions (deepin/XFCE): no Wayland socket, use DPMS.
+if [ -z "${WAYLAND_DISPLAY:-}" ] || [ ! -S "$RUNTIME/$WAYLAND_DISPLAY" ]; then
+	export DISPLAY="${DISPLAY:-:0}"
+	export XAUTHORITY="${XAUTHORITY:-/home/c7/.Xauthority}"
+	if [ "$ACTION" = off ]; then
+		xset dpms force off && echo "xset off ok"
+	else
+		xset dpms force on && echo "xset on ok"
+	fi
+	echo "$ACTION" >"$STATE"
+	exit 0
+fi
+
+ok=0
+if [ "$ACTION" = off ]; then
+	if command -v wlopm >/dev/null 2>&1; then
+		wlopm --off "$OUT" && { echo "wlopm off ok"; ok=1; }
+	fi
+	if command -v wlr-randr >/dev/null 2>&1; then
+		wlr-randr --output "$OUT" --off >/dev/null 2>&1 &&
+			{ echo "wlr-randr off ok"; ok=1; }
+	fi
+	if command -v gdbus >/dev/null 2>&1; then
+		gdbus call --session --dest org.gnome.SettingsDaemon.Power \
+			--object-path /org/gnome/SettingsDaemon/Power \
+			--method org.gnome.SettingsDaemon.Power.Screen.SetBrightness 0 \
+			>/dev/null 2>&1 && { echo "gsd brightness 0 ok"; ok=1; }
+	fi
+	echo off >"$STATE"
+else
+	if command -v wlopm >/dev/null 2>&1; then
+		wlopm --on "$OUT" && { echo "wlopm on ok"; ok=1; }
+	fi
+	if command -v wlr-randr >/dev/null 2>&1; then
+		wlr-randr --output "$OUT" --on >/dev/null 2>&1 &&
+			{ echo "wlr-randr on ok"; ok=1; }
+	fi
+	if command -v gdbus >/dev/null 2>&1; then
+		gdbus call --session --dest org.gnome.SettingsDaemon.Power \
+			--object-path /org/gnome/SettingsDaemon/Power \
+			--method org.gnome.SettingsDaemon.Power.Screen.SetBrightness 50 \
+			>/dev/null 2>&1 && { echo "gsd brightness 50 ok"; ok=1; }
+	fi
+	echo on >"$STATE"
+fi
+echo "result=$ok"
+exit 0

@@ -81,3 +81,8 @@ dosfstools
 i2c-tools
 evtest
 zram-tools
+gcc
+libc6-dev
+wlopm
+wlr-randr
+x11-xserver-utils

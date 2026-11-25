@@ -224,6 +224,12 @@ chmod 0755 "$ROOT/usr/local/bin/c7-start-phosh" \
 	"$ROOT/usr/local/bin/c7-start-denial" \
 	"$ROOT/usr/local/bin/c7-start-gnome" \
 	"$ROOT/usr/local/sbin/c7-usb-gadget.sh"
+chmod 0755 "$ROOT/usr/bin/c7-screen"
+if [ -f "$ROOT/usr/local/src/c7-pwrkey.c" ]; then
+	log "building c7-pwrkey"
+	in_root gcc -O2 -static -o /usr/sbin/c7-pwrkey /usr/local/src/c7-pwrkey.c
+	chmod 0755 "$ROOT/usr/sbin/c7-pwrkey"
+fi
 chmod 0600 "$ROOT/etc/NetworkManager/system-connections/usb0.nmconnection"
 
 # ---------------------------------------------------- kernel modules/firmware
@@ -252,6 +258,7 @@ for unit in \
 	c7-wifi.service \
 	c7-usb-gadget.service \
 	c7-usb-dhcpd.service \
+	c7-pwrkey.service \
 	getty@tty1.service \
 	serial-getty@ttyMSM0.service \
 	serial-getty@ttyGS0.service \
