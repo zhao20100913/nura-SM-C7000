@@ -12,6 +12,7 @@ chmod 1777 /tmp/.X11-unix 2>/dev/null || true
 set -u
 
 export C7_SESSION_STARTED=1
+export LIBSEAT_BACKEND=logind
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=Phosh:GNOME
 export XDG_SESSION_DESKTOP=phosh

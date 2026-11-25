@@ -202,7 +202,8 @@ for grp in sudo adm video audio input plugdev netdev dialout render; do
 	in_root groupadd -f "$grp"
 done
 if ! in_root id -u "$USERNAME" >/dev/null 2>&1; then
-	in_root useradd -m -s /bin/bash -G sudo,adm,video,audio,input,plugdev,netdev,dialout "$USERNAME"
+	in_root groupadd -f render
+	in_root useradd -m -s /bin/bash -G sudo,adm,video,render,tty,audio,input,plugdev,netdev,dialout "$USERNAME"
 fi
 printf '%s:%s\n' "$USERNAME" "$PASSWORD" | in_root chpasswd
 in_root usermod -aG render "$USERNAME" 2>/dev/null || true
