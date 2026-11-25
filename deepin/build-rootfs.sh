@@ -17,8 +17,8 @@ PKG_LIST=${3:-$HERE/packages.txt}
 
 ROOT=$(readlink -m "$ROOT")
 BASE=$(readlink -m "$BASE")
-MIRROR=${MIRROR:-https://mirror.deepines.com/deepin/}
-SECURITY=${SECURITY:-https://mirror.deepines.com/deepin/}
+MIRROR=${MIRROR:-https://mirror.deepines.com/deepin/beige/}
+SECURITY=${SECURITY:-https://mirror.deepines.com/deepin/beige/}
 RELEASE=${RELEASE:-beige}
 QEMU=${QEMU:-/usr/bin/qemu-aarch64-static}
 USERNAME=${USERNAME:-c7}
