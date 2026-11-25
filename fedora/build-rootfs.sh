@@ -70,6 +70,16 @@ done
 in_root dnf -y install --skip-unavailable --skip-broken "${INSTALL[@]}"
 in_root dnf -y install sudo || true
 
+# DenialWM ships an official aarch64 RPM.
+DENIAL=https://github.com/denialwm/denial/releases/download/v0.6.8
+in_root dnf -y --nogpgcheck install \
+	"$DENIAL/denial-flutter-engine-0.6.8-1.aarch64.rpm" \
+	"$DENIAL/denial-0.6.8-1.aarch64.rpm" || true
+if ! in_root command -v denial-session >/dev/null 2>&1; then
+	echo "DenialWM RPM did not install denial-session" >&2
+	exit 1
+fi
+
 # Fedora 43 does not build squeekboard any more; the Fedora 42 arm64 RPM
 # still provides the OSK Phosh expects.  Best effort: if its sonames moved,
 # maliit-keyboard remains installed as a fallback.
