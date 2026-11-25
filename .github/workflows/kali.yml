@@ -1,4 +1,4 @@
-name: Build Kali Linux (GNOME) for SM-C7000
+name: Build Kali Linux (Phosh) for SM-C7000
 
 # Builds a Debian 13 (trixie) + DenialWM (or Phosh) flash package for the Samsung
 # Galaxy C7 SM-C7000 (c7lte, MSM8953).  No LK2nd: the kernel, initramfs and
@@ -55,7 +55,7 @@ jobs:
     timeout-minutes: 240
 
     env:
-      DESKTOP: "gnome"
+      DESKTOP: "phosh"
       BASE_ARTIFACT_ID: ${{ inputs.base_artifact_id }}
       ROOTFS_SIZE_GB: ${{ inputs.rootfs_size_gb || '6' }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -225,7 +225,7 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Kali Linux (GNOME) for SM-C7000"
+            echo "## Kali Linux (Phosh) for SM-C7000"
             echo
             echo "| file | size | sha256 |"
             echo "| --- | --- | --- |"
