@@ -51,6 +51,8 @@ prepare() {
 	echo 'dtb-$(CONFIG_ARCH_QCOM) += msm8953-samsung-c7lte.dtb' \
 		>> arch/arm64/boot/dts/qcom/Makefile
 
+	# CONFIG_CIFS pulls wcslen which 6.12 does not export in this config
+	scripts/config --disable CIFS --disable SMB_SERVER
 	make ARCH="$_carch" LLVM=1 olddefconfig
 }
 
