@@ -188,7 +188,7 @@ for grp in sudo adm video audio input plugdev netdev dialout render; do
 	in_root groupadd -f "$grp"
 done
 if ! in_root id -u "$USERNAME" >/dev/null 2>&1; then
-	in_root useradd -m -s /bin/bash -G sudo,adm,video,audio,input,plugdev,netdev,dialout "$USERNAME"
+	in_root useradd -m -s /bin/bash -G sudo,adm,video,render,tty,audio,input,plugdev,netdev,dialout "$USERNAME"
 fi
 printf '%s:%s\n' "$USERNAME" "$PASSWORD" | in_root chpasswd
 in_root usermod -aG render "$USERNAME" 2>/dev/null || true
@@ -209,6 +209,7 @@ chown -R "$UID_:$GID_" "$ROOT/home/$USERNAME"
 chmod 0755 "$ROOT/usr/local/bin/c7-start-phosh" \
 	"$ROOT/usr/local/bin/c7-start-denial" \
 	"$ROOT/usr/local/bin/c7-start-gnome" \
+	"$ROOT/usr/local/bin/c7-start-xfce" \
 	"$ROOT/usr/local/bin/c7-start-deepin" \
 	"$ROOT/usr/local/sbin/c7-usb-gadget.sh"
 chmod 0600 "$ROOT/etc/NetworkManager/system-connections/usb0.nmconnection"
