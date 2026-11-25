@@ -87,6 +87,13 @@ if [ ! -e "$ROOT/usr/share/applications/sm.puri.OSK0.desktop" ] && \
 	ln -sf /etc/alternatives/sm.puri.OSK0.desktop \
 		"$ROOT/usr/share/applications/sm.puri.OSK0.desktop"
 fi
+# Phosh 0.54 lists sm.puri.OSK0 as a required gnome-session component, but
+# Fedora 42's squeekboard only provides sm.puri.Squeekboard.  Drop the
+# component so gnome-session can start; squeekboard's autostart still runs.
+SESS="$ROOT/usr/share/gnome-session/sessions/phosh.session"
+if [ -f "$SESS" ]; then
+	sed -i 's/;sm\.puri\.OSK0//g; s/sm\.puri\.OSK0;//g' "$SESS"
+fi
 if ! in_root rpm -q phosh phoc gnome-session >/dev/null 2>&1 || ! in_root command -v phosh-session >/dev/null 2>&1; then
 	echo "Phosh packages missing from the Fedora repos" >&2
 	exit 1
