@@ -3,5 +3,11 @@
 if [ "$(tty 2>/dev/null)" = "/dev/tty1" ] && [ -z "${WAYLAND_DISPLAY:-}" ] \
 	&& [ -z "${C7_SESSION_STARTED:-}" ]; then
 	export C7_SESSION_STARTED=1
-	exec /usr/local/bin/c7-start-denial
+	if command -v startplasma-wayland >/dev/null 2>&1 || command -v startplasma-x11 >/dev/null 2>&1; then
+		exec /usr/local/bin/c7-start-kde
+	elif command -v denial-session >/dev/null 2>&1; then
+		exec /usr/local/bin/c7-start-denial
+	else
+		exec /usr/local/bin/c7-start-phosh
+	fi
 fi

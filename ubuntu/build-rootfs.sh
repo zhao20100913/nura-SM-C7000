@@ -146,6 +146,27 @@ if [ "$DESKTOP" = "denial" ]; then
 	rm -rf "$ROOT/tmp/denial"
 fi
 
+# ------------------------------------------------------------ KDE Plasma
+if [ "$DESKTOP" = "kde" ]; then
+	log "installing KDE Plasma (Wayland)"
+	KDE_PKGS="kde-plasma-desktop kwin-wayland plasma-nm plasma-pa powerdevil
+		maliit-keyboard maliit-framework konsole dolphin kinfocenter"
+	KDE_INSTALL=()
+	for pkg in $KDE_PKGS; do
+		if in_root apt-cache show "$pkg" >/dev/null 2>&1; then
+			KDE_INSTALL+=("$pkg")
+		else
+			log "warning: KDE package $pkg not in $RELEASE"
+		fi
+	done
+	if [ ${#KDE_INSTALL[@]} -gt 0 ]; then
+		in_root apt-get install -y --no-install-recommends "${KDE_INSTALL[@]}"
+	fi
+	# We start Plasma directly on tty1 (see c7-start-kde), not through a
+	# display manager, so keep sddm out of the way.
+	in_root systemctl mask sddm.service >/dev/null 2>&1 || true
+fi
+
 # Keep the image small: no documentation, no apt cache, no man pages.
 in_root apt-get clean
 rm -rf "$ROOT/var/lib/apt/lists"/* "$ROOT/var/cache/apt/archives"/*.deb
@@ -201,6 +222,7 @@ GID_=$(in_root id -g "$USERNAME")
 chown -R "$UID_:$GID_" "$ROOT/home/$USERNAME"
 chmod 0755 "$ROOT/usr/local/bin/c7-start-phosh" \
 	"$ROOT/usr/local/bin/c7-start-denial" \
+	"$ROOT/usr/local/bin/c7-start-kde" \
 	"$ROOT/usr/local/sbin/c7-usb-gadget.sh"
 chmod 0600 "$ROOT/etc/NetworkManager/system-connections/usb0.nmconnection"
 

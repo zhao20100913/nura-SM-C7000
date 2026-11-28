@@ -1,0 +1,41 @@
+#!/bin/sh
+# Start KDE Plasma (Wayland first, X11 fallback) on /dev/tty1
+# (see ../home/c7/.bash_profile).  The user bus must be the one logind set
+# up for this session, like the Phosh launcher, so Plasma's systemd user
+# units start correctly.
+set -u
+
+export C7_SESSION_STARTED=1
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=KDE
+export XDG_SESSION_DESKTOP=KDE
+export DESKTOP_SESSION=plasma
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM=wayland
+
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+	export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+fi
+if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
+	export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+fi
+
+# No DRM device usually means the panel driver did not bind (or the DTB did
+# not match); starting KWin anyway only produces a crash loop.
+if [ ! -e /dev/dri/card0 ]; then
+	echo "c7-start-kde: no /dev/dri/card0, staying on a shell" >&2
+	echo "c7-start-kde: check dmesg for the s6e3fa3 panel and msm drm" >&2
+	exec bash -l
+fi
+
+if command -v startplasma-wayland >/dev/null 2>&1; then
+	echo "c7-start-kde: starting Plasma (Wayland); log: ~/.kde-session.log"
+	exec startplasma-wayland > "$HOME/.kde-session.log" 2>&1
+elif command -v startplasma-x11 >/dev/null 2>&1; then
+	echo "c7-start-kde: starting Plasma (X11); log: ~/.kde-session.log"
+	exec startplasma-x11 > "$HOME/.kde-session.log" 2>&1
+else
+	echo "c7-start-kde: no plasma session launcher found" >&2
+	echo "c7-start-kde: startplasma-wayland / startplasma-x11 missing" >&2
+	exec bash -l
+fi

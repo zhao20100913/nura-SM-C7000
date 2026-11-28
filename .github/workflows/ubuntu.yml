@@ -1,4 +1,4 @@
-name: Build Ubuntu 26.04 (DenialWM/Phosh) for SM-C7000
+name: Build Ubuntu 26.04 (KDE/DenialWM/Phosh) for SM-C7000
 
 # Builds a Ubuntu 26.04 LTS (resolute) + DenialWM (or Phosh) flash package for the Samsung
 # Galaxy C7 SM-C7000 (c7lte, MSM8953).  No LK2nd: the kernel, initramfs and
@@ -22,9 +22,10 @@ on:
         description: "Desktop session"
         type: choice
         options:
+          - kde
           - denial
           - phosh
-        default: denial
+        default: kde
       base_source:
         description: "Where the kernel/initramfs come from"
         type: choice
@@ -62,7 +63,7 @@ jobs:
     timeout-minutes: 240
 
     env:
-      DESKTOP: ${{ inputs.desktop || 'denial' }}
+      DESKTOP: ${{ inputs.desktop || 'kde' }}
       BASE_ARTIFACT_ID: ${{ inputs.base_artifact_id }}
       ROOTFS_SIZE_GB: ${{ inputs.rootfs_size_gb || '3' }}
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
